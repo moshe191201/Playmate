@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<!-- app:start -->
+<title>Playmate</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Rubik:wght@400;500;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* Layout: one column "prompt book" — script in screenplay layout, transport bar pinned to the bottom like a stage manager's desk. */
+:root {
+  --stage: #131217;
+  --boards: #1c1b22;
+  --rule: #2e2c36;
+  --ink: #ece8de;
+  --dim: #9a96a5;
+  --spot: #f2c24f;
+  --spotwash: rgba(242, 194, 79, .10);
+  --me: #84d3c4;
+  --mewash: rgba(132, 211, 196, .10);
+  --danger: #f0907a;
+  --ui: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --script: "Courier Prime", "Rubik", "Courier New", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box }
+html, body { background: var(--stage); color: var(--ink) }
+body { font: 16px/1.5 var(--ui); padding-inline: 16px; -webkit-tap-highlight-color: transparent;
+  background-image: radial-gradient(60rem 30rem at 50% -10rem, rgba(242,194,79,.07), transparent 70%); background-attachment: fixed }
+button, input, select { font: inherit; color: inherit }
+button { cursor: pointer; border: 1px solid var(--rule); background: var(--boards); border-radius: 10px; padding: .6em 1em; min-height: 44px }
+button:hover { border-color: var(--dim) }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .drop:focus-within { outline: 2px solid var(--spot); outline-offset: 2px }
+button.primary { background: var(--spot); color: #1a1408; border-color: var(--spot); font-weight: 700 }
+button.ghost { background: transparent }
+button:disabled { opacity: .45; cursor: default }
+.app { max-width: 46rem; margin: 0 auto; padding-block: 12px 260px }
+.top { display: flex; align-items: center; gap: 12px; padding-block: 8px 20px; flex-wrap: wrap }
+.brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--spot) }
+.doc { flex: 1; min-width: 0; color: var(--dim); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+h1 { font-size: clamp(28px, 6vw, 40px); line-height: 1.1; margin: 8px 0 12px; text-wrap: balance; font-weight: 700 }
+h2 { font-size: 24px; margin: 0 0 6px; text-wrap: balance }
+.lead { color: var(--dim); max-width: 34em; margin: 0 0 24px }
+section { display: flex; flex-direction: column; gap: 16px; align-items: flex-start }
+.drop { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; width: 100%;
+  padding: 36px 16px; border: 1.5px dashed var(--rule); border-radius: 14px; background: var(--boards); cursor: pointer; text-align: center }
+.drop.over { border-color: var(--spot); background: var(--spotwash) }
+.drop strong { font-size: 18px }
+.drop span { color: var(--dim); font-size: 14px }
+.drop input { position: absolute; opacity: 0; width: 1px; height: 1px }
+.err { color: var(--danger); margin: 0 }
+.note { color: var(--dim); font-size: 14px; margin: 0 }
+details.fmt { color: var(--dim); font-size: 14px; max-width: 36em }
+details.fmt summary { cursor: pointer; color: var(--ink) }
+details.fmt pre { font-family: var(--script); background: var(--boards); padding: 10px 12px; border-radius: 8px; overflow-x: auto; color: var(--ink) }
+.chips { display: flex; flex-wrap: wrap; gap: 8px }
+.chip { display: inline-flex; gap: 8px; align-items: baseline; border-radius: 999px; padding: .5em 1em }
+.chip small { color: var(--dim); font-variant-numeric: tabular-nums }
+.chip[aria-pressed="true"] { background: var(--mewash); border-color: var(--me); color: var(--me) }
+.chip[aria-pressed="true"] small { color: var(--me) }
+
+/* the script, laid out like a stage script: name centred over the speech */
+.script { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 4px }
+.script li { padding: 10px 12px; border-radius: 10px; cursor: pointer; scroll-margin: 30vh }
+.script li:hover { background: var(--boards) }
+.who { display: block; text-align: center; font-family: var(--script); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 14px; color: var(--dim) }
+.txt { margin: 2px auto 0; max-width: 34em; font-family: var(--script); font-size: 17px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere }
+.script li.dir .txt { font-style: italic; color: var(--dim); font-size: 15px; padding-inline: 1.5em }
+.script li.mine .who { color: var(--me) }
+.script li.mine .txt { color: var(--me) }
+.script li.current { background: var(--spotwash) }
+.script li.current .who { color: var(--spot) }
+.script li.mine.current { background: var(--mewash) }
+.script li.mine.current .who { color: var(--me) }
+.hide-mine .script li.mine:not(.revealed) .txt { filter: blur(7px); user-select: none }
+
+/* transport bar */
+.bar { position: fixed; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--boards) 94%, transparent); backdrop-filter: blur(8px);
+  border-top: 1px solid var(--rule); padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); max-height: 85vh; overflow-y: auto }
+.bar-in { max-width: 46rem; margin: 0 auto; display: flex; flex-direction: column; gap: 10px }
+.status { display: flex; align-items: center; gap: 10px; min-height: 28px; flex-wrap: wrap }
+.pill { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: var(--rule); color: var(--ink) }
+.pill.reading { background: var(--spot); color: #1a1408 }
+.pill.you { background: var(--me); color: #0c201c }
+.pill.heard { background: var(--me); color: #0c201c; animation: pulse 1s ease-in-out infinite }
+@keyframes pulse { 50% { opacity: .6 } }
+@media (prefers-reduced-motion: reduce) { .pill.heard { animation: none } }
+#statusText { color: var(--dim); font-size: 14px; min-width: 0 }
+.meter { position: relative; height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden }
+.meter i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--me); transition: width .05s linear }
+.meter b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .7 }
+.controls { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 8px }
+.controls button { min-height: 52px }
+details.settings summary { cursor: pointer; color: var(--dim); font-size: 14px; padding: 4px 0 }
+.set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 12px 20px; padding-top: 10px }
+.set-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--dim) }
+.set-grid label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink) }
+.set-grid output { color: var(--ink); font-variant-numeric: tabular-nums }
+.set-grid input[type=range] { width: 100%; accent-color: var(--spot) }
+.set-grid select { background: var(--stage); border: 1px solid var(--rule); border-radius: 8px; padding: 8px }
+.set-btns { display: flex; gap: 8px; flex-wrap: wrap }
+</style>
+
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">Playmate</div>
+    <div class="doc" id="docTitle" dir="auto"></div>
+    <button id="newBtn" class="ghost" hidden>New script</button>
+  </header>
+
+  <section id="loadView">
+    <h1>Run lines with a scene partner who never gets tired.</h1>
+    <p class="lead">Upload your play as a Word file and pick your character. Playmate reads everyone else's lines aloud, then waits while you say yours and carries on when you go quiet.</p>
+    <label class="drop" id="drop" for="file">
+      <input type="file" id="file" accept=".docx,.txt">
+      <strong>Choose a .docx file</strong>
+      <span>or drop it here</span>
+    </label>
+    <p class="err" id="loadErr" hidden></p>
+    <button id="sampleBtn" class="ghost">Try a sample scene</button>
+    <details class="fmt">
+      <summary>Script layouts Playmate understands</summary>
+      <p>Name and colon before each speech:</p>
+<pre>MARGARET: You're late again.
+TOM: (out of breath) The bus broke down.</pre>
+      <p>Or the name on its own line, speech underneath:</p>
+<pre>MARGARET
+You're late again.</pre>
+      <p>A two-column table (name | speech) also works. Lines in (parentheses), [brackets] or italics count as stage directions and are shown but not read.</p>
+    </details>
+  </section>
+
+  <section id="castView" hidden>
+    <h2>Who are you playing?</h2>
+    <p class="note" id="castMeta"></p>
+    <div class="chips" id="chips"></div>
+    <button id="startBtn" class="primary" disabled>Start rehearsal</button>
+  </section>
+
+  <section id="stageView" hidden>
+    <ol class="script" id="script"></ol>
+  </section>
+</div>
+
+<div class="bar" id="bar" hidden>
+  <div class="bar-in">
+    <div class="status"><span class="pill" id="pill">Ready</span><span id="statusText" dir="auto">Press Play to begin.</span></div>
+    <div class="meter" id="meter" hidden><i id="meterFill"></i><b id="meterThr"></b></div>
+    <div class="controls">
+      <button id="prevBtn">◀ Back</button>
+      <button id="playBtn" class="primary">▶ Play</button>
+      <button id="nextBtn">Skip ▶</button>
+    </div>
+    <details class="settings" id="settingsBox">
+      <summary>Settings</summary>
+      <div class="set-grid">
+        <label>Speaking speed <output id="rateOut"></output><input type="range" id="rate" min="0.6" max="1.6" step="0.1"></label>
+        <label>Silence that ends your line <output id="silOut"></output><input type="range" id="sil" min="0.6" max="4" step="0.1"></label>
+        <label>Mic sensitivity <output id="sensOut"></output><input type="range" id="sens" min="1" max="5" step="1"></label>
+        <label>Voice language <select id="langSel"></select></label>
+        <label class="check"><input type="checkbox" id="readDirs"> Read stage directions aloud</label>
+        <label class="check"><input type="checkbox" id="hideMine"> Blur my lines (tap one to peek)</label>
+        <div class="set-btns">
+          <button id="castBtn" class="ghost">Change character</button>
+          <button id="micBtn" class="ghost">Retry microphone</button>
+        </div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+const KEY = 'playmate-v1';
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null') } catch { return null } };
+const persist = () => { try { localStorage.setItem(KEY, JSON.stringify({ title: S.title, items: S.items, chars: S.chars, lang: S.lang, mine: [...S.mine], idx: S.idx, settings })) } catch {} };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const saved = load();
+const settings = Object.assign({ rate: 1, silence: 1.5, sens: 3, readDirs: false, hideMine: false, voiceLang: 'auto' }, saved?.settings || {});
+const S = { title: '', items: [], chars: [], lang: 'en', mine: new Set(), idx: 0 };
+
+/* ---------- reading the .docx ---------- */
+const kids = (el, name) => [...el.children].filter(c => c.localName === name);
+function runItalic(r) {
+  const rPr = kids(r, 'rPr')[0]; if (!rPr) return false;
+  const i = kids(rPr, 'i')[0]; if (!i) return false;
+  const v = i.getAttributeNS(W, 'val'); return !(v === '0' || v === 'false');
+}
+function paraInfo(p) {
+  let text = '', chars = 0, ital = 0;
+  for (const r of p.getElementsByTagNameNS(W, 'r')) {
+    const it = runItalic(r);
+    for (const c of r.children) {
+      if (c.localName === 't') { text += c.textContent; const n = c.textContent.trim().length; chars += n; if (it) ital += n; }
+      else if (c.localName === 'tab') text += ' ';
+      else if (c.localName === 'br' || c.localName === 'cr') text += '\n';
+    }
+  }
+  const style = (p.getElementsByTagNameNS(W, 'pStyle')[0]?.getAttributeNS(W, 'val') || '').toLowerCase();
+  const dirStyle = /direction|parenthetical|action/.test(style);
+  return { text, italic: dirStyle || (chars > 0 && ital === chars) };
+}
+function walk(node, out) {
+  for (const el of node.children) {
+    const n = el.localName;
+    if (n === 'p') { const info = paraInfo(el); for (const t of info.text.split('\n')) out.push({ text: t, italic: info.italic }); }
+    else if (n === 'tbl') {
+      for (const tr of kids(el, 'tr')) {
+        const cells = kids(tr, 'tc').map(tc => { const o = []; walk(tc, o); return o.map(x => x.text).join(' ').trim(); }).filter(Boolean);
+        if (cells.length >= 2 && cells[0].length <= 40) out.push({ text: cells[0] + ': ' + cells.slice(1).join(' '), italic: false });
+        else cells.forEach(t => out.push({ text: t, italic: false }));
+      }
+    }
+    else if (['sdt', 'sdtContent', 'customXml', 'smartTag', 'ins'].includes(n)) walk(el, out);
+  }
+}
+async function readDocx(buf) {
+  const zip = await JSZip.loadAsync(buf);
+  const f = zip.file('word/document.xml'); if (!f) throw new Error('nodoc');
+  const doc = new DOMParser().parseFromString(await f.async('string'), 'application/xml');
+  const body = doc.getElementsByTagNameNS(W, 'body')[0];
+  const out = []; walk(body, out); return out;
+}
+
+/* ---------- finding characters and speeches ---------- */
+const clean = s => s.replace(/[‎‏‪-‮ ]/g, ' ').replace(/\s+/g, ' ').trim();
+const keyOf = n => n.toLocaleUpperCase();
+const isDirText = s => /^[(\[].*[)\]][.!]?$/.test(s);
+const SCENE_RE = /^(act|scene|prologue|epilogue|curtain|the end|מערכה|תמונה|סצנה|סצינה|מסך|סוף)(?=[\s:.\-–,]|\d|$)/iu;
+const COLON_RE = /^([^:：()\[\]]{1,40}?)\s*(\([^)]*\)|\[[^\]]*\])?\s*[:：]\s*(.*)$/u;
+function validName(n, maxWords = 4) {
+  n = n.replace(/[.\s]+$/, '').trim();
+  if (!n || n.length > 40 || /\d/.test(n) || !/\p{L}/u.test(n) || /^[(\[]/.test(n)) return null;
+  if (n.split(' ').length > maxWords) return null;
+  return n;
+}
+function headerName(p) {
+  if (p.italic || isDirText(p.text) || SCENE_RE.test(p.text)) return null;
+  const raw = p.text.replace(/\s*(\([^)]*\)|\[[^\]]*\])\s*$/, '').replace(/\s*[:：]\s*$/, '');
+  const shout = /[A-Z]/.test(raw) && raw === raw.toUpperCase();
+  if (raw.length > 30 || (/[.?!,;…"”״']$/.test(raw) && !shout)) return null;
+  return validName(raw, 3);
+}
+function parseScript(paras) {
+  paras = paras.map(p => ({ text: clean(p.text), italic: p.italic })).filter(p => p.text);
+  // score layout A: "NAME: speech"
+  let colonHits = 0;
+  for (const p of paras) { const m = COLON_RE.exec(p.text); if (m && validName(m[1], 3) && !SCENE_RE.test(p.text)) colonHits++; }
+  // score layout B: name on its own line, speech below
+  const hCount = new Map();
+  paras.forEach((p, i) => {
+    const n = headerName(p);
+    if (n && paras[i + 1]) hCount.set(keyOf(n), (hCount.get(keyOf(n)) || 0) + 1);
+  });
+  const hNames = new Set([...hCount].filter(([, c]) => c >= 2).map(([k]) => k));
+  const headerHits = [...hCount].filter(([k]) => hNames.has(k)).reduce((a, [, c]) => a + c, 0);
+  if (!colonHits && !headerHits) return null;
+
+  const items = [], names = new Map();
+  const pushLine = (name, text) => {
+    const k = keyOf(name);
+    if (!names.has(k)) names.set(k, { key: k, name, count: 0 });
+    names.get(k).count++;
+    const it = { type: 'line', key: k, who: name, text }; items.push(it); return it;
+  };
+  const pushDir = text => items.push({ type: 'dir', text });
+
+  if (colonHits >= headerHits) {
+    let pending = null;
+    for (const p of paras) {
+      const t = p.text;
+      if (SCENE_RE.test(t)) { pending = null; pushDir(t); continue; }
+      const m = COLON_RE.exec(t), n = m && validName(m[1], 3);
+      if (n && !p.italic) {
+        const rest = ((m[2] ? m[2] + ' ' : '') + m[3]).trim();
+        if (m[3]) pushLine(n, rest); else pending = n;
+        continue;
+      }
+      const dir = p.italic || isDirText(t), last = items[items.length - 1];
+      if (pending && !dir) { pushLine(pending, t); pending = null; }
+      else if (!dir && last && last.type === 'line') last.text += '\n' + t;
+      else pushDir(t);
+    }
+  } else {
+    let cur = null, open = null;
+    for (const p of paras) {
+      const t = p.text;
+      if (SCENE_RE.test(t)) { cur = null; open = null; pushDir(t); continue; }
+      const n = headerName(p);
+      if (n && hNames.has(keyOf(n))) { cur = n; open = null; continue; }
+      if (p.italic || isDirText(t) || !cur) { pushDir(t); open = null; continue; }
+      if (open && open === items[items.length - 1]) open.text += '\n' + t;
+      else open = pushLine(cur, t);
+    }
+  }
+  const chars = [...names.values()].sort((a, b) => b.count - a.count);
+  if (!chars.length) return null;
+  const all = items.map(i => i.text).join(' ');
+  const he = (all.match(/[֐-׿]/g) || []).length, ar = (all.match(/[؀-ۿ]/g) || []).length,
+        ru = (all.match(/[Ѐ-ӿ]/g) || []).length, la = (all.match(/[A-Za-z]/g) || []).length;
+  const top = Math.max(he, ar, ru, la);
+  const lang = top === he && he ? 'he' : top === ar && ar ? 'ar' : top === ru && ru ? 'ru' : 'en';
+  return { items, chars, lang, mode: colonHits >= headerHits ? 'colon' : 'header' };
+}
+
+/* ---------- screens ---------- */
+function show(view) {
+  for (const v of ['loadView', 'castView', 'stageView']) $(v).hidden = v !== view;
+  $('bar').hidden = view !== 'stageView';
+  $('newBtn').hidden = view === 'loadView';
+  $('docTitle').textContent = view === 'loadView' ? '' : S.title;
+}
+function useScript(parsed, title) {
+  S.items = parsed.items; S.chars = parsed.chars; S.lang = parsed.lang; S.title = title; S.mine = new Set(); S.idx = 0;
+  const lines = S.items.filter(i => i.type === 'line').length;
+  $('castMeta').textContent = `${lines} speeches and ${S.chars.length} characters found. Pick one, or several if you double up.`;
+  renderChips(); persist(); show('castView');
+}
+function renderChips() {
+  const box = $('chips'); box.innerHTML = '';
+  for (const c of S.chars) {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.setAttribute('aria-pressed', S.mine.has(c.key)); b.dir = 'auto';
+    const nm = document.createElement('span'); nm.textContent = c.name;
+    const ct = document.createElement('small'); ct.textContent = c.count + (c.count === 1 ? ' line' : ' lines');
+    b.append(nm, ct);
+    b.onclick = () => { S.mine.has(c.key) ? S.mine.delete(c.key) : S.mine.add(c.key); b.setAttribute('aria-pressed', S.mine.has(c.key)); $('startBtn').disabled = !S.mine.size; };
+    box.append(b);
+  }
+  $('startBtn').disabled = !S.mine.size;
+}
+async function handleFile(file) {
+  $('loadErr').hidden = true;
+  try {
+    let paras;
+    if (/\.txt$/i.test(file.name)) paras = (await file.text()).split(/\r?\n/).map(t => ({ text: t, italic: false }));
+    else paras = await readDocx(await file.arrayBuffer());
+    const parsed = parseScript(paras);
+    if (!parsed) throw new Error('nolines');
+    useScript(parsed, file.name.replace(/\.(docx|txt)$/i, ''));
+  } catch (e) {
+    $('loadErr').textContent = e.message === 'nolines'
+      ? "Couldn't find any character speeches in that file. Check the layouts below: each speech needs the character's name before it."
+      : /\.doc$/i.test(file.name) ? 'That is an older .doc file. Open it in Word, choose Save As › Word Document (.docx), and upload that.'
+      : "Couldn't read that file. Make sure it's a Word .docx document.";
+    $('loadErr').hidden = false;
+  }
+}
+$('file').onchange = e => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ''; };
+const drop = $('drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) handleFile(f); };
+$('sampleBtn').onclick = () => useScript(parseScript(SAMPLE.map(text => ({ text, italic: false }))), 'Sample: The Understudy');
+$('newBtn').onclick = () => { stop(); show('loadView'); };
+$('castBtn').onclick = () => { stop(); renderChips(); show('castView'); };
+$('startBtn').onclick = () => { S.idx = 0; renderScript(); show('stageView'); persist(); play(); };
+
+/* ---------- the script view ---------- */
+let lis = [];
+function renderScript() {
+  const ol = $('script'); ol.innerHTML = ''; lis = [];
+  document.body.classList.toggle('hide-mine', settings.hideMine);
+  S.items.forEach((it, i) => {
+    const li = document.createElement('li');
+    if (it.type === 'dir') li.className = 'dir';
+    else {
+      if (S.mine.has(it.key)) li.className = 'mine';
+      const who = document.createElement('span'); who.className = 'who'; who.textContent = it.who; who.dir = 'auto'; li.append(who);
+    }
+    const p = document.createElement('p'); p.className = 'txt'; p.textContent = it.text; p.dir = 'auto'; li.append(p);
+    li.onclick = () => {
+      if (settings.hideMine && li.classList.contains('mine') && !li.classList.contains('revealed')) { li.classList.add('revealed'); return; }
+      go(i);
+    };
+    ol.append(li); lis.push(li);
+  });
+  highlight(S.idx, false);
+}
+let curLi = null;
+function highlight(i, scroll = true) {
+  curLi?.classList.remove('current');
+  curLi = lis[i] || null;
+  if (curLi) { curLi.classList.add('current'); if (scroll) curLi.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }
+}
+
+/* ---------- voices ---------- */
+const PITCH = [1, 0.8, 1.2, 0.92, 1.3, 0.7, 1.1];
+const FULL = { he: 'he-IL', en: 'en-US', ar: 'ar-SA', ru: 'ru-RU' };
+const langNow = () => settings.voiceLang === 'auto' ? S.lang : settings.voiceLang;
+function voicesFor(lang) {
+  const all = speechSynthesis.getVoices();
+  const norm = v => v.lang.toLowerCase().replace('_', '-');
+  let vs = all.filter(v => norm(v).startsWith(lang) || (lang === 'he' && norm(v).startsWith('iw')));
+  const good = v => /natural|online|premium|enhanced|neural/i.test(v.name) ? 0 : 1;
+  return vs.sort((a, b) => good(a) - good(b));
+}
+function fillLangs() {
+  const langs = [...new Set(speechSynthesis.getVoices().map(v => v.lang.slice(0, 2).toLowerCase().replace('iw', 'he')))].sort();
+  const sel = $('langSel'); sel.innerHTML = '';
+  const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); };
+  add('auto', 'Match the script');
+  langs.forEach(l => add(l, l));
+  sel.value = langs.includes(settings.voiceLang) ? settings.voiceLang : 'auto';
+}
+speechSynthesis.onvoiceschanged = fillLangs;
+function voiceSlot(key) {
+  if (key == null) return 0;
+  const others = S.chars.filter(c => !S.mine.has(c.key));
+  return Math.max(0, others.findIndex(c => c.key === key)) + 1;
+}
+function chunks(text) {
+  const parts = text.replace(/\n/g, ' ').split(/(?<=[.!?…؟])\s+/);
+  const out = [];
+  for (const p of parts) {
+    if (p.length <= 220) { if (p.trim()) out.push(p); continue; }
+    let buf = '';
+    for (const w of p.split(/(?<=,)\s+/)) { if ((buf + ' ' + w).length > 220 && buf) { out.push(buf); buf = w; } else buf = buf ? buf + ' ' + w : w; }
+    if (buf) out.push(buf);
+  }
+  return out;
+}
+let stepAbort = null, keepUtt = null;
+function sayChunk(text, slot) {
+  return new Promise(res => {
+    const u = new SpeechSynthesisUtterance(text); keepUtt = u;
+    const vs = voicesFor(langNow());
+    if (vs.length) { u.voice = vs[slot % vs.length]; u.lang = u.voice.lang; } else u.lang = FULL[langNow()] || langNow();
+    u.rate = settings.rate; u.pitch = PITCH[slot % PITCH.length];
+    let done = false, seen = false; const t0 = Date.now();
+    const fin = () => { if (done) return; done = true; clearInterval(poll); res(); };
+    const poll = setInterval(() => { if (speechSynthesis.speaking) seen = true; else if (seen || Date.now() - t0 > 4000) fin(); }, 250);
+    u.onend = fin; u.onerror = fin;
+    stepAbort = () => { fin(); speechSynthesis.cancel(); };
+    speechSynthesis.speak(u);
+  });
+}
+async function speak(text, slot, my) {
+  let skipped = false;
+  for (const c of chunks(text)) {
+    if (my !== token || skipped) return;
+    await sayChunk(c, slot);
+    // stepAbort fired = skip the rest of this speech
+    if (stepAbort === null) skipped = true;
+  }
+}
+const spoken = t => settings.readDirs ? t : t.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+
+/* ---------- microphone: notice when you start and stop talking ---------- */
+let actx = null, analyser = null, buf = null, mic = false, micTried = false, floor = 0.003;
+const SENS_K = [0, 5, 3.6, 2.6, 1.9, 1.5];
+function rms() { analyser.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i]; return Math.sqrt(s / buf.length); }
+const threshold = () => Math.max(floor * SENS_K[settings.sens], 0.006 / (settings.sens * 0.4));
+async function initMic() {
+  if (micTried) return; micTried = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    const src = actx.createMediaStreamSource(stream);
+    analyser = actx.createAnalyser(); analyser.fftSize = 1024; src.connect(analyser);
+    buf = new Float32Array(analyser.fftSize); mic = true;
+    let sum = 0; for (let i = 0; i < 8; i++) { await sleep(60); sum += rms(); } floor = Math.max(sum / 8, 0.001);
+  } catch { mic = false; }
+  $('micBtn').hidden = mic;
+}
+function meter(r, thr) {
+  const scale = v => Math.min(100, Math.sqrt(v / (thr * 3)) * 100);
+  $('meterFill').style.width = scale(r) + '%'; $('meterThr').style.left = scale(thr) + '%';
+}
+function listen(my) {
+  return new Promise(res => {
+    let iv = null, finished = false;
+    const finish = () => { if (finished) return; finished = true; clearInterval(iv); $('meter').hidden = true; res(); };
+    stepAbort = finish;
+    if (!mic) { status('you', 'Your line', micTried ? 'Say your line, then tap Done (or press Space).' : 'Your line. Tap Done when finished.'); return; }
+    status('you', 'Your line', 'Go ahead. I move on when you stop talking.');
+    $('meter').hidden = false;
+    let voiceMs = 0, quietMs = 0, heard = false; const t0 = Date.now();
+    iv = setInterval(() => {
+      if (my !== token) return finish();
+      const r = rms(), thr = threshold(); meter(r, thr);
+      if (Date.now() - t0 < 250) return;
+      if (r > thr) {
+        voiceMs += 50; quietMs = 0;
+        if (!heard && voiceMs >= 150) { heard = true; status('heard', 'Listening', 'Hearing you…'); }
+      } else {
+        floor = Math.min(floor * 0.98 + r * 0.02, 0.05);
+        voiceMs = Math.max(0, voiceMs - 25);
+        if (heard && (quietMs += 50) >= settings.silence * 1000) finish();
+      }
+    }, 50);
+  });
+}
+
+/* ---------- playback ---------- */
+let token = 0, running = false, wake = null;
+function status(kind, label, text) {
+  const p = $('pill'); p.className = 'pill ' + kind; p.textContent = label; $('statusText').textContent = text || '';
+  const yours = kind === 'you' || kind === 'heard';
+  $('nextBtn').textContent = yours ? 'Done ✓' : 'Skip ▶';
+}
+function syncPlay() { $('playBtn').textContent = running ? '❚❚ Pause' : '▶ Play'; }
+async function runFrom(i) {
+  const my = ++token; running = true; syncPlay();
+  for (let k = i; k < S.items.length; k++) {
+    if (my !== token) return;
+    S.idx = k; highlight(k); persist();
+    const it = S.items[k];
+    if (it.type === 'dir') {
+      if (settings.readDirs) { status('reading', 'Directions', it.text); await speak(it.text, 0, my); }
+      continue;
+    }
+    if (S.mine.has(it.key)) {
+      await listen(my);
+      if (my !== token) return;
+      lis[k]?.classList.add('revealed');
+      stepAbort = null;
+      await sleep(120);
+    } else {
+      const t = spoken(it.text);
+      status('reading', it.who, t.length > 90 ? t.slice(0, 90) + '…' : t);
+      if (t) await speak(t, voiceSlot(it.key), my);
+      stepAbort = null;
+      await sleep(150);
+    }
+  }
+  if (my !== token) return;
+  running = false; S.idx = 0; persist(); syncPlay();
+  status('', 'Curtain', 'End of script. Press Play to run it again, or tap any line to start there.');
+  releaseWake();
+}
+function stop() {
+  token++; running = false;
+  const a = stepAbort; stepAbort = null; a?.();
+  speechSynthesis.cancel(); $('meter').hidden = true; syncPlay();
+  status('', 'Paused', 'Tap any line to start from there.'); releaseWake();
+}
+async function play() {
+  // these must happen inside the tap so phones allow sound
+  speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(' '));
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.();
+  running = true; syncPlay(); status('', 'Starting', mic ? '' : 'Asking for the microphone…');
+  await initMic();
+  if (!mic) status('', 'No mic', 'Microphone unavailable. Tap Done after each of your lines.');
+  try { wake = await navigator.wakeLock?.request('screen'); } catch {}
+  runFrom(S.idx);
+}
+function releaseWake() { try { wake?.release(); } catch {} wake = null; }
+document.addEventListener('visibilitychange', async () => { if (running && document.visibilityState === 'visible') try { wake = await navigator.wakeLock?.request('screen'); } catch {} });
+function go(i) {
+  i = Math.max(0, Math.min(S.items.length - 1, i));
+  const was = running; if (was) { token++; const a = stepAbort; stepAbort = null; a?.(); speechSynthesis.cancel(); }
+  S.idx = i; highlight(i); persist();
+  if (was) runFrom(i); else status('', 'Ready', 'Press Play to start from here.');
+}
+$('playBtn').onclick = () => running ? stop() : play();
+$('prevBtn').onclick = () => go(S.idx - 1);
+$('nextBtn').onclick = () => { if (running && stepAbort) { const a = stepAbort; stepAbort = null; a(); } else go(S.idx + 1); };
+document.addEventListener('keydown', e => {
+  if (e.code !== 'Space' || $('bar').hidden || /INPUT|SELECT|BUTTON/.test(e.target.tagName)) return;
+  e.preventDefault();
+  if (running && /you|heard/.test($('pill').className)) $('nextBtn').click(); else $('playBtn').click();
+});
+
+/* ---------- settings ---------- */
+function bindRange(id, outId, key, fmt) {
+  const el = $(id), out = $(outId); el.value = settings[key]; out.textContent = fmt(settings[key]);
+  el.oninput = () => { settings[key] = +el.value; out.textContent = fmt(settings[key]); persist(); };
+}
+bindRange('rate', 'rateOut', 'rate', v => v.toFixed(1) + '×');
+bindRange('sil', 'silOut', 'silence', v => v.toFixed(1) + ' s');
+bindRange('sens', 'sensOut', 'sens', v => ['', 'low', 'medium-low', 'medium', 'high', 'very high'][v]);
+$('readDirs').checked = settings.readDirs; $('readDirs').onchange = e => { settings.readDirs = e.target.checked; persist(); };
+$('hideMine').checked = settings.hideMine; $('hideMine').onchange = e => { settings.hideMine = e.target.checked; document.body.classList.toggle('hide-mine', settings.hideMine); persist(); };
+$('langSel').onchange = e => { settings.voiceLang = e.target.value; persist(); };
+$('micBtn').onclick = async () => { micTried = false; actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.(); await initMic(); status('', mic ? 'Mic on' : 'No mic', mic ? 'Microphone connected.' : 'Still no microphone access. Check the browser’s site permissions.'); };
+fillLangs();
+
+const SAMPLE = [
+  'THE UNDERSTUDY', 'Scene 1', '(An empty rehearsal hall. MARGARET sits alone with a script. TOM rushes in.)',
+  'MARGARET: You\'re late again.',
+  'TOM: (out of breath) The bus broke down. I ran the last four stops.',
+  'MARGARET: The director asked for you twice. I told her you were rehearsing in the hallway.',
+  'TOM: Thank you. I owe you a coffee.',
+  'MARGARET: You owe me eleven coffees. I\'ve been counting.',
+  'DIRECTOR: (calling from offstage) Places, everyone! From the top of the scene!',
+  'TOM: Do you know your lines?',
+  'MARGARET: Every one of them. Do you?',
+  'TOM: Most of them. The middle bit is a fog.',
+  'DIRECTOR: Tom, you start. Whenever you\'re ready.',
+  'TOM: Right. Here goes nothing.',
+  '(Lights fade.)'
+];
+
+/* ---------- reopen where you left off ---------- */
+if (saved?.items?.length) {
+  S.items = saved.items; S.chars = saved.chars || []; S.lang = saved.lang || 'en'; S.title = saved.title || '';
+  S.mine = new Set(saved.mine || []); S.idx = saved.idx || 0;
+  if (S.mine.size) { renderScript(); show('stageView'); status('', 'Ready', 'Press Play to continue where you left off.'); }
+  else { renderChips(); $('castMeta').textContent = `${S.chars.length} characters found.`; show('castView'); }
+} else show('loadView');
+})();
+</script>
+<!-- app:end -->
+</body>
+</html>
