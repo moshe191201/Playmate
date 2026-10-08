@@ -87,6 +87,36 @@ const check = (name, ok, extra = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  
   await p.click('#leaveNo'); await p.click('#uiLangBtn');
   check('English interface, same play text', (await p.evaluate(() => document.documentElement.lang)) === 'en' && line === await p.textContent('.script li.mine .txt'));
 
+  // Android: recognition alone (no mic held for voice detection, which would starve it),
+  // one phrase per session, and the recogniser's error code shown when nothing was caught
+  const actx2 = await browser.newContext({ viewport: { width: 400, height: 860 }, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36' });
+  await actx2.addInitScript(() => {
+    window.__gum = 0; window.__heard = ['the bus fell over in the rain']; window.__recs = [];
+    speechSynthesis.speak = u => setTimeout(() => u.onend?.(), 10);
+    window.SpeechRecognition = class {
+      constructor() { window.__recs.push(this); }
+      start() { if (!this.onresult) return; const t = window.__heard.shift();
+        setTimeout(() => t ? this.onresult?.({ results: [[{ transcript: t }]] }) : (window.__errored = true, this.onerror?.({ error: 'network' })), 200); }
+      abort() { setTimeout(() => this.onend?.(), 50); }
+      stop() {}
+    };
+    navigator.mediaDevices.getUserMedia = async () => { window.__gum++; return new AudioContext().createMediaStreamDestination().stream; };
+  });
+  const a = await actx2.newPage();
+  a.on('pageerror', e => { console.log('PAGE ERROR', e.message); failed++; });
+  await a.route('**/fonts.googleapis.com/**', r => r.abort());
+  await a.route('**/cdnjs.cloudflare.com/**', r => r.abort());
+  await a.goto(PAGE);
+  await a.click('#sampleBtn'); await a.click('.chip:has-text("TOM")'); await a.click('#startBtn');
+  await a.waitForFunction(() => !document.getElementById('lastHeard').hidden, null, { timeout: 30000 });
+  check('android: line checked by recognition alone', /35%/.test(await a.textContent('#lastHeard')), await a.textContent('#lastHeard'));
+  check('android: mic not held alongside recognition', await a.evaluate(() => window.__gum === 0 && document.getElementById('micBtn').hidden));
+  check('android: one phrase per recognition session', await a.evaluate(() => window.__recs.filter(r => r.onresult).every(r => r.continuous === false)));
+  await a.waitForFunction(() => window.__errored, null, { timeout: 30000 });
+  await a.click('#nextBtn');
+  await a.waitForFunction(() => /network/.test(document.getElementById('lastHeard').textContent), null, { timeout: 30000 }).catch(() => {});
+  check('android: recogniser error shown when nothing was heard', /network/.test(await a.textContent('#lastHeard')), await a.textContent('#lastHeard'));
+
   await browser.close();
   console.log(failed ? `\n${failed} check(s) failed` : '\nAll checks passed');
   process.exit(failed ? 1 : 0);

@@ -720,17 +720,21 @@ const spoken = t => settings.readDirs ? t : stripDirs(t);
 
 /* ---------- speech recognition: did you say the right words? ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-function startRec(onText) {
+// Android lets only one thing use the mic: if we hold it for voice detection, recognition
+// hears nothing. There, recognition alone tells us when you speak and stop. Android's
+// continuous mode also repeats words, so it gets one phrase per session and restarts.
+const REC_ONLY = !!SR && /Android/i.test(navigator.userAgent);
+function startRec(onText, onFail) {
   const st = { prev: '', cur: '', failed: false, alive: true, restarts: 0, text() { return (this.prev + ' ' + this.cur).replace(/\s+/g, ' ').trim(); } };
   let r;
   try {
-    r = new SR(); r.lang = FULL[langNow()] || langNow(); r.continuous = true; r.interimResults = true;
+    r = new SR(); r.lang = FULL[langNow()] || langNow(); r.continuous = !REC_ONLY; r.interimResults = true;
   } catch { st.failed = true; return st; }
   r.onresult = e => {
     let t = ''; for (let i = 0; i < e.results.length; i++) t += ' ' + e.results[i][0].transcript;
     st.cur = t; onText(st.text());
   };
-  r.onerror = e => { if (/not-allowed|service-not-allowed|audio-capture|language-not-supported/.test(e.error)) st.failed = true; };
+  r.onerror = e => { st.err = e.error; if (/not-allowed|service-not-allowed|audio-capture|language-not-supported/.test(e.error)) { st.failed = true; onFail?.(); } };
   r.onend = () => {
     st.prev += ' ' + st.cur; st.cur = '';
     if (st.alive && !st.failed && st.restarts++ < 20) { try { r.start(); } catch {} }
@@ -774,7 +778,7 @@ function showResult(r) {
   lastResult = r; const el = $('lastHeard');
   if (!r) { el.hidden = true; return; }
   el.hidden = false; el.className = 'result' + (r.why ? ' none' : r.bad ? ' bad' : '');
-  el.textContent = r.why ? t(r.why) : t('heard', r.said, r.pct);
+  el.textContent = r.why ? t(r.why) + (r.err ? ` (${r.err})` : '') : t('heard', r.said, r.pct);
 }
 function flashMiss() { const m = $('miss'); m.classList.remove('show'); void m.offsetWidth; m.classList.add('show'); }
 function showHeard(k, said, score, bad) {
@@ -793,6 +797,7 @@ function rms() { analyser.getFloatTimeDomainData(buf); let s = 0; for (let i = 0
 const threshold = () => Math.max(floor * SENS_K[settings.sens], 0.006 / (settings.sens * 0.4));
 async function initMic() {
   if (micTried) return; micTried = true;
+  if (REC_ONLY) { $('micBtn').hidden = true; return; }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     // left the page while the permission prompt was up: don't keep a mic we no longer need
@@ -831,12 +836,13 @@ function listen(my) {
       if (finished) return; finished = true; clearInterval(iv); $('meter').hidden = true;
       rs?.stop();
       const said = rs ? rs.text() : '';
-      res({ said, recDone: rs?.done || Promise.resolve(), judged: !!(rs && said), why: !SR ? 'srMissing' : rs.failed ? 'srBlocked' : 'srNothing' });
+      res({ said, recDone: rs?.done || Promise.resolve(), judged: !!(rs && said), why: !SR ? 'srMissing' : rs.failed ? 'srBlocked' : 'srNothing', err: rs?.err && rs.err !== 'no-speech' ? rs.err : '' });
     };
     stepAbort = finish;
     let heard = false, lastAct = Date.now();
     const onHeard = () => { if (!heard) { heard = true; status('heard', K('listening'), K('hearing')); } };
-    if (SR) rs = startRec(text => { lastAct = Date.now(); if (text) { onHeard(); $('statusText').textContent = text; } });
+    if (SR) rs = startRec(text => { lastAct = Date.now(); if (text) { onHeard(); $('statusText').textContent = text; } },
+      () => { if (!mic && !finished) status('you', K('yourLine'), K('sayThenDone')); });
     if (!mic && (!rs || rs.failed)) { status('you', K('yourLine'), K(micTried ? 'sayThenDone' : 'tapDone')); return; }
     status('you', K('yourLine'), K('goAhead'));
     $('meter').hidden = !mic;
@@ -879,7 +885,7 @@ async function runFrom(i) {
     if (S.mine.has(it.key)) {
       const expected = stripDirs(it.text);
       if (!expected) continue;
-      const { said, judged, why, recDone } = await listen(my);
+      const { said, judged, why, err, recDone } = await listen(my);
       if (my !== token) return;
       lis[k]?.classList.add('revealed');
       stepAbort = null;
@@ -895,7 +901,7 @@ async function runFrom(i) {
           stepAbort = null;
           if (my !== token) return;
         } else if (bad) flashMiss();
-      } else showResult({ why });
+      } else showResult({ why, err });
       await sleep(120);
     } else {
       const t = spoken(it.text);
@@ -921,9 +927,9 @@ async function play() {
   speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(' '));
   actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.();
   primeRec();
-  running = true; syncPlay(); status('', K('starting'), mic ? '' : K('askingMic'));
+  running = true; syncPlay(); status('', K('starting'), mic || REC_ONLY ? '' : K('askingMic'));
   await initMic();
-  if (!mic) status('', K('noMic'), K('noMicText'));
+  if (!mic && !REC_ONLY) status('', K('noMic'), K('noMicText'));
   try { wake = await navigator.wakeLock?.request('screen'); } catch {}
   runFrom(S.idx);
 }
