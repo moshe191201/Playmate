@@ -97,9 +97,7 @@ details.fmt pre { font-family: var(--script); background: var(--charcoal); borde
 /* cast chips: squared tags, gold when chosen */
 .chips { display: flex; flex-wrap: wrap; gap: 8px }
 .chip { display: inline-flex; gap: 10px; align-items: baseline; border-color: var(--warm-gray); padding: .5em 1em; font-size: 15px }
-.chip small { color: var(--mute); font-family: var(--ui); font-size: 12px; letter-spacing: .04em; text-transform: none; font-variant-numeric: tabular-nums }
 .chip[aria-pressed="true"] { background: var(--goldwash-2); border-color: var(--gold); color: var(--gold) }
-.chip[aria-pressed="true"] small { color: var(--gold-2) }
 
 /* the script, laid out like a stage script: name centred over the speech */
 .script { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 4px }
@@ -135,6 +133,7 @@ details.fmt pre { font-family: var(--script); background: var(--charcoal); borde
 .controls { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 8px }
 .controls button { min-height: 52px }
 .controls .primary { font-size: 17px }
+.controls .jump { grid-column: 1 / -1; min-height: 44px }
 details.settings { border-top: 1px solid var(--warm-gray); padding-top: 4px }
 details.settings summary { cursor: pointer; color: var(--gold-2); font-family: var(--label); letter-spacing: .16em; text-transform: uppercase; font-size: 13px; padding: 6px 0 }
 details.settings summary:hover { color: var(--gold) }
@@ -162,6 +161,12 @@ details.settings summary:hover { color: var(--gold) }
 .said { margin: 6px auto 0; max-width: 34em; font-size: 13px; color: var(--ink-2); font-family: var(--ui) }
 .said.bad { color: var(--red-ink) }
 .pill.prompt { background: var(--red); color: var(--ink) }
+
+/* leave confirmation */
+.leave { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; background: rgba(7, 6, 6, .78); backdrop-filter: blur(3px) }
+.leave-box { width: min(100%, 22rem); background: var(--charcoal); border: 1px solid var(--gold-2); border-radius: 2px; padding: 24px 20px 20px; box-shadow: var(--shadow-deep); display: flex; flex-direction: column; gap: 20px }
+.leave-box p { margin: 0; font-family: var(--label); font-size: 20px; letter-spacing: .04em; color: var(--gold); text-align: center; text-wrap: balance }
+.leave-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
 
 /* the miss mark: a red stamp with worn edges */
 #miss { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 50 }
@@ -225,14 +230,14 @@ You're late again.</pre>
     <div class="status"><span class="pill" id="pill">Ready</span><span id="statusText" dir="auto">Press Play to begin.</span></div>
     <div class="meter" id="meter" hidden><i id="meterFill"></i><b id="meterThr"></b></div>
     <div class="toggles">
-      <label class="switch"><input type="checkbox" id="checkLines"><span data-t="checkLines">Check my lines</span></label>
-      <label class="switch off" id="readMistakesWrap"><input type="checkbox" id="readMistakes" disabled><span data-t="readMistakes">Read mistakes aloud</span></label>
+      <label class="switch" id="readMistakesWrap"><input type="checkbox" id="readMistakes"><span data-t="readMistakes">Read mistakes aloud</span></label>
       <span class="note" id="srNote" hidden></span>
     </div>
     <div class="controls">
       <button id="prevBtn">◀ Back</button>
       <button id="playBtn" class="primary">▶ Play</button>
       <button id="nextBtn">Skip ▶</button>
+      <button id="jumpBtn" class="ghost jump" data-t="jumpMine">Jump to my next line</button>
     </div>
     <details class="settings" id="settingsBox">
       <summary data-t="settings">Settings</summary>
@@ -250,6 +255,16 @@ You're late again.</pre>
         </div>
       </div>
     </details>
+  </div>
+</div>
+
+<div class="leave" id="leaveDlg" role="dialog" aria-modal="true" aria-labelledby="leaveQ" hidden>
+  <div class="leave-box">
+    <p id="leaveQ" data-t="leaveQ">Are you sure you want to leave?</p>
+    <div class="leave-btns">
+      <button id="leaveNo" class="primary" data-t="no">No</button>
+      <button id="leaveYes" class="ghost" data-t="yes">Yes</button>
+    </div>
   </div>
 </div>
 
@@ -277,11 +292,11 @@ const STR = {
     whoPlaying: 'Who are you playing?', start: 'Start rehearsal',
     castMeta: (l, c) => `${l} speeches and ${c} characters found. Pick one, or several if you double up.`,
     castMetaShort: c => `${c} characters found.`,
-    lines: n => n === 1 ? '1 line' : `${n} lines`,
     errNoLines: "Couldn't find any character speeches in that file. Check the layouts below: each speech needs the character's name before it.",
     errDoc: 'That is an older .doc file. Open it in Word, choose Save As › Word Document (.docx), and upload that.',
     errRead: "Couldn't read that file. Make sure it's a Word .docx document.",
-    checkLines: 'Check my lines', readMistakes: 'Read mistakes aloud', srNote: 'Line checking needs Chrome, Edge or Safari.',
+    jumpMine: 'Jump to my next line', leaveQ: 'Are you sure you want to leave?', yes: 'Yes', no: 'No',
+    readMistakes: 'Read mistakes aloud', srNote: 'Line checking needs Chrome, Edge or Safari.',
     back: '◀ Back', skip: 'Skip ▶', done: 'Done ✓', play: '▶ Play', pause: '❚❚ Pause',
     settings: 'Settings', rate: 'Speaking speed', silence: 'Silence that ends your line', sens: 'Mic sensitivity',
     strict: 'Line check strictness', voiceLang: 'Voice language', readDirs: 'Read stage directions aloud',
@@ -310,11 +325,11 @@ const STR = {
     whoPlaying: 'את מי אתם משחקים?', start: 'התחלת חזרה',
     castMeta: (l, c) => `נמצאו ${l} קטעי דיבור ו-${c} דמויות. בחרו דמות אחת, או כמה אם אתם משחקים יותר מתפקיד אחד.`,
     castMetaShort: c => `נמצאו ${c} דמויות.`,
-    lines: n => n === 1 ? 'שורה אחת' : `${n} שורות`,
     errNoLines: 'לא נמצאו בקובץ קטעי דיבור של דמויות. בדקו את המבנים שמופיעים למטה: לפני כל קטע צריך להופיע שם הדמות.',
     errDoc: 'זה קובץ Word ישן (doc). פתחו אותו ב-Word, בחרו "שמירה בשם" ואז "מסמך Word (docx)", והעלו את הקובץ החדש.',
     errRead: 'לא הצלחנו לקרוא את הקובץ. ודאו שזה מסמך Word מסוג docx.',
-    checkLines: 'בדיקת השורות שלי', readMistakes: 'הקראה בקול כשיש טעות', srNote: 'בדיקת שורות עובדת רק ב-Chrome, ב-Edge או ב-Safari.',
+    jumpMine: 'קפיצה לשורה הבאה שלי', leaveQ: 'בטוח שאתם רוצים לצאת?', yes: 'כן', no: 'לא',
+    readMistakes: 'הקראה בקול כשיש טעות', srNote: 'בדיקת שורות עובדת רק ב-Chrome, ב-Edge או ב-Safari.',
     back: '▶ הקודם', skip: 'דלג ◀', done: 'סיימתי ✓', play: '▶ הפעלה', pause: '❚❚ השהיה',
     settings: 'הגדרות', rate: 'מהירות הדיבור', silence: 'משך השקט שמסיים את השורה שלכם', sens: 'רגישות המיקרופון',
     strict: 'רמת ההקפדה בבדיקה', voiceLang: 'שפת הקול', readDirs: 'הקראת הוראות במה',
@@ -333,7 +348,10 @@ const STR = {
   }
 };
 const saved = load();
-const settings = Object.assign({ rate: 1, silence: 1.5, sens: 3, readDirs: false, hideMine: false, voiceLang: 'auto', checkLines: false, readMistakes: false, strict: 2, uiLang: /^(he|iw)/i.test(navigator.language || '') ? 'he' : 'en' }, saved?.settings || {});
+const settings = Object.assign({ rate: 1, silence: 1.5, sens: 3, readDirs: false, hideMine: false, voiceLang: 'auto', readMistakes: false, strict: 2, uiLang: 'he' }, saved?.settings || {});
+// 3. Hebrew is the default interface; earlier saved choices are reset to it once
+if (!settings.uiLangV2) { settings.uiLang = 'he'; settings.uiLangV2 = true; }
+delete settings.checkLines;
 const S = { title: '', items: [], chars: [], lang: 'en', mine: new Set(), idx: 0 };
 const t = (k, ...a) => { const v = (STR[settings.uiLang] || STR.en)[k]; return typeof v === 'function' ? v(...a) : v; };
 const K = (k, ...a) => ({ k, a });  // a translatable status message, re-rendered when the language changes
@@ -473,17 +491,16 @@ function show(view) {
 function useScript(parsed, title) {
   S.items = parsed.items; S.chars = parsed.chars; S.lang = parsed.lang; S.title = title; S.mine = new Set(); S.idx = 0;
   const lines = S.items.filter(i => i.type === 'line').length;
-  castMetaMsg = K('castMeta', lines, S.chars.length); $('castMeta').textContent = t('castMeta', lines, S.chars.length);
+  castMetaMsg = K('castMeta', lines, castList().length); $('castMeta').textContent = say(castMetaMsg);
   renderChips(); persist(); show('castView');
 }
+const castList = () => S.chars.filter(c => c.count > 1);
 function renderChips() {
   const box = $('chips'); box.innerHTML = '';
-  for (const c of S.chars) {
+  for (const c of castList()) {
     const b = document.createElement('button');
     b.className = 'chip'; b.setAttribute('aria-pressed', S.mine.has(c.key)); b.dir = 'auto';
-    const nm = document.createElement('span'); nm.textContent = c.name;
-    const ct = document.createElement('small'); ct.dataset.n = c.count; ct.textContent = t('lines', c.count);
-    b.append(nm, ct);
+    b.textContent = c.name;
     b.onclick = () => { S.mine.has(c.key) ? S.mine.delete(c.key) : S.mine.add(c.key); b.setAttribute('aria-pressed', S.mine.has(c.key)); $('startBtn').disabled = !S.mine.size; };
     box.append(b);
   }
@@ -696,7 +713,7 @@ function listen(my) {
     stepAbort = finish;
     let heard = false, lastAct = Date.now();
     const onHeard = () => { if (!heard) { heard = true; status('heard', K('listening'), K('hearing')); } };
-    if (settings.checkLines && SR) rs = startRec(text => { lastAct = Date.now(); if (text) { onHeard(); $('statusText').textContent = text; } });
+    if (SR) rs = startRec(text => { lastAct = Date.now(); if (text) { onHeard(); $('statusText').textContent = text; } });
     if (!mic && (!rs || rs.failed)) { status('you', K('yourLine'), K(micTried ? 'sayThenDone' : 'tapDone')); return; }
     status('you', K('yourLine'), K('goAhead'));
     $('meter').hidden = !mic;
@@ -743,7 +760,7 @@ async function runFrom(i) {
       if (my !== token) return;
       lis[k]?.classList.add('revealed');
       stepAbort = null;
-      if (settings.checkLines && judged) {
+      if (judged) {
         const score = lineScore(expected, said), bad = score < STRICT[settings.strict];
         showHeard(k, said, score, bad);
         if (bad && settings.readMistakes) {
@@ -777,7 +794,7 @@ async function play() {
   // these must happen inside the tap so phones allow sound
   speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(' '));
   actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.();
-  if (settings.checkLines) primeRec();
+  primeRec();
   running = true; syncPlay(); status('', K('starting'), mic ? '' : K('askingMic'));
   await initMic();
   if (!mic) status('', K('noMic'), K('noMicText'));
@@ -794,6 +811,16 @@ function go(i) {
 }
 $('playBtn').onclick = () => running ? stop() : play();
 $('prevBtn').onclick = () => go(S.idx - 1);
+// the next of your lines after the current one, wrapping round to the top
+function nextMine() {
+  const n = S.items.length;
+  for (let d = 1; d <= n; d++) {
+    const i = (S.idx + d) % n, it = S.items[i];
+    if (it.type === 'line' && S.mine.has(it.key) && stripDirs(it.text)) return i;
+  }
+  return -1;
+}
+$('jumpBtn').onclick = () => { const i = nextMine(); if (i >= 0) go(i); };
 $('nextBtn').onclick = () => { if (running && stepAbort) { const a = stepAbort; stepAbort = null; a(); } else go(S.idx + 1); };
 document.addEventListener('keydown', e => {
   if (e.code !== 'Space' || $('bar').hidden || /INPUT|SELECT|BUTTON/.test(e.target.tagName)) return;
@@ -819,15 +846,10 @@ function primeRec() {
   try { const r = new SR(); r.lang = FULL[langNow()] || langNow(); r.onerror = () => {}; r.start(); setTimeout(() => { try { r.abort(); } catch {} }, 300); } catch {}
 }
 function syncToggles() {
-  $('checkLines').checked = settings.checkLines && !!SR;
-  $('checkLines').disabled = !SR;
-  $('checkLines').parentElement.classList.toggle('off', !SR);
-  const on = settings.checkLines && !!SR;
-  $('readMistakes').disabled = !on; $('readMistakes').checked = on && settings.readMistakes;
-  $('readMistakesWrap').classList.toggle('off', !on);
+  $('readMistakes').disabled = !SR; $('readMistakes').checked = !!SR && settings.readMistakes;
+  $('readMistakesWrap').classList.toggle('off', !SR);
   if (!SR) { $('srNote').hidden = false; $('srNote').textContent = t('srNote'); }
 }
-$('checkLines').onchange = e => { settings.checkLines = e.target.checked; if (settings.checkLines) primeRec(); syncToggles(); persist(); };
 $('readMistakes').onchange = e => { settings.readMistakes = e.target.checked; persist(); };
 syncToggles();
 $('readDirs').checked = settings.readDirs; $('readDirs').onchange = e => { settings.readDirs = e.target.checked; persist(); };
@@ -846,7 +868,6 @@ function applyUiLang() {
   syncPlay(); status(...lastStatus); rangeRefresh.forEach(f => f()); fillLangs(); syncToggles();
   if (castMetaMsg) $('castMeta').textContent = say(castMetaMsg);
   if (loadErrKey) $('loadErr').textContent = t(loadErrKey);
-  for (const c of document.querySelectorAll('.chip small')) c.textContent = t('lines', +c.dataset.n);
   for (const h of document.querySelectorAll('.said')) h.textContent = t('heard', h.dataset.said, h.dataset.pct);
 }
 $('uiLangBtn').onclick = () => { settings.uiLang = settings.uiLang === 'he' ? 'en' : 'he'; persist(); applyUiLang(); };
@@ -872,9 +893,28 @@ if (saved?.items?.length) {
   S.items = saved.items; S.chars = saved.chars || []; S.lang = saved.lang || 'en'; S.title = saved.title || '';
   S.mine = new Set(saved.mine || []); S.idx = saved.idx || 0;
   if (S.mine.size) { renderScript(); show('stageView'); status('', K('ready'), K('continueText')); }
-  else { renderChips(); castMetaMsg = K('castMetaShort', S.chars.length); $('castMeta').textContent = say(castMetaMsg); show('castView'); }
+  else { renderChips(); castMetaMsg = K('castMetaShort', castList().length); $('castMeta').textContent = say(castMetaMsg); show('castView'); }
 } else show('loadView');
 applyUiLang();
+
+/* ---------- ask before the back button leaves the app ---------- */
+// The page keeps one extra history entry; pressing back lands on it and we ask first.
+// Browsers only honour an entry added after a tap, so it is armed on the first one.
+let guardArmed = false, leaving = false;
+function armGuard() {
+  if (guardArmed || leaving || !$('leaveDlg').hidden) return; guardArmed = true;
+  try { history.pushState({ playmateGuard: true }, ''); } catch {}
+}
+document.addEventListener('click', armGuard, { capture: true });
+document.addEventListener('keydown', armGuard, { capture: true });
+window.addEventListener('popstate', () => {
+  if (!guardArmed || leaving) return;
+  guardArmed = false;
+  if (running) stop();
+  $('leaveDlg').hidden = false; $('leaveNo').focus();
+});
+$('leaveNo').onclick = () => { $('leaveDlg').hidden = true; armGuard(); };
+$('leaveYes').onclick = () => { leaving = true; $('leaveDlg').hidden = true; history.back(); };
 })();
 </script>
 <!-- app:end -->
