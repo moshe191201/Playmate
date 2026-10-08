@@ -331,6 +331,7 @@ const STR = {
     srMissing: "This browser has no speech recognition, so lines aren't being checked.",
     charVoices: 'Character voices', voiceN: n => `voice ${n}`,
     voicesNote: n => `Tap a character to hear their next voice. ${n === 0 ? "This device has no voice for the play's language, so the browser picks one, and pitch and pace tell the characters apart." : `This device has ${n === 1 ? 'one voice' : n + ' voices'} for the play's language, so pitch and pace keep the rest apart.`} Edge on a computer and Android phones usually have the most.`,
+    awayPaused: 'Paused while you were away, and the microphone is off. Press Play to continue.',
     close: 'Close ✕', backToScript: 'Back to the script',
     jumpMine: 'Jump to my next line', leaveQ: 'Are you sure you want to leave?', yes: 'Yes', no: 'No',
     readMistakes: 'Read mistakes aloud', srNote: 'Line checking needs Chrome, Edge or Safari.',
@@ -369,6 +370,7 @@ const STR = {
     srMissing: 'בדפדפן הזה אין זיהוי דיבור, ולכן השורות לא נבדקות.',
     charVoices: 'הקולות של הדמויות', voiceN: n => `קול ${n}`,
     voicesNote: n => `הקישו על דמות כדי לשמוע את הקול הבא שלה. ${n === 0 ? 'אין במכשיר הזה קול בשפת המחזה, אז הדפדפן בוחר קול, והדמויות מובחנות בגובה הקול ובקצב.' : `במכשיר הזה יש ${n === 1 ? 'קול אחד' : n + ' קולות'} בשפת המחזה, ולכן הדמויות מובחנות גם בגובה הקול ובקצב.`} בדרך כלל יש הכי הרבה קולות בדפדפן Edge במחשב ובטלפוני אנדרואיד.`,
+    awayPaused: 'החזרה הושהתה כשיצאתם, והמיקרופון כבוי. לחצו על "הפעלה" כדי להמשיך.',
     close: 'סגירה ✕', backToScript: 'חזרה למחזה',
     jumpMine: 'קפיצה לשורה הבאה שלי', leaveQ: 'בטוח שאתם רוצים לצאת?', yes: 'כן', no: 'לא',
     readMistakes: 'הקראה בקול כשיש טעות', srNote: 'בדיקת שורות עובדת רק ב-Chrome, ב-Edge או ב-Safari.',
@@ -785,7 +787,7 @@ function showHeard(k, said, score, bad) {
 }
 
 /* ---------- microphone: notice when you start and stop talking ---------- */
-let actx = null, analyser = null, buf = null, mic = false, micTried = false, floor = 0.003;
+let actx = null, analyser = null, buf = null, mic = false, micTried = false, floor = 0.003, micStream = null, micSrc = null;
 const SENS_K = [0, 5, 3.6, 2.6, 1.9, 1.5];
 function rms() { analyser.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i]; return Math.sqrt(s / buf.length); }
 const threshold = () => Math.max(floor * SENS_K[settings.sens], 0.006 / (settings.sens * 0.4));
@@ -793,13 +795,31 @@ async function initMic() {
   if (micTried) return; micTried = true;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-    const src = actx.createMediaStreamSource(stream);
+    // left the page while the permission prompt was up: don't keep a mic we no longer need
+    if (document.hidden) { stream.getTracks().forEach(t => t.stop()); micTried = false; return; }
+    micStream = stream;
+    const src = micSrc = actx.createMediaStreamSource(stream);
     analyser = actx.createAnalyser(); analyser.fftSize = 1024; src.connect(analyser);
     buf = new Float32Array(analyser.fftSize); mic = true;
     let sum = 0; for (let i = 0; i < 8; i++) { await sleep(60); sum += rms(); } floor = Math.max(sum / 8, 0.001);
   } catch { mic = false; }
   $('micBtn').hidden = mic;
 }
+// The mic is only held while this tab is on screen (and, on a computer, while the window
+// has focus). Leaving pauses the rehearsal and releases it; Play asks for it again.
+function releaseMic() {
+  micStream?.getTracks().forEach(t => t.stop());
+  try { micSrc?.disconnect(); } catch {}
+  micStream = null; micSrc = null; analyser = null; mic = false; micTried = false;
+}
+function leftPage() {
+  if (running) { stop(); status('', K('paused'), K('awayPaused')); }
+  releaseMic();
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) leftPage(); });
+window.addEventListener('pagehide', leftPage);
+// phones can blur the page while speech recognition starts, so focus only counts on computers
+if (matchMedia('(pointer: fine)').matches) window.addEventListener('blur', leftPage);
 function meter(r, thr) {
   const scale = v => Math.min(100, Math.sqrt(v / (thr * 3)) * 100);
   $('meterFill').style.width = scale(r) + '%'; $('meterThr').style.left = scale(thr) + '%';

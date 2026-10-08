@@ -7,3 +7,5 @@ Everything runs in the browser in a single file (`index.html`): no server and no
 
 Host it with GitHub Pages (Settings → Pages → Deploy from branch → `main` / root), or open
 `index.html` directly in Chrome or Edge on a computer.
+
+Working on the code? Start with `CLAUDE.md`, and run `node tests/smoke.cjs` before pushing.
