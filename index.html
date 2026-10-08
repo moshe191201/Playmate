@@ -8,132 +8,184 @@
 <body>
 <!-- app:start -->
 <title>Playmate</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Rubik:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Secular+One&family=Heebo:wght@400;500;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
-/* Layout: one column "prompt book" — script in screenplay layout, transport bar pinned to the bottom like a stage manager's desk. */
+/* Layout: one column "prompt book" — script in screenplay layout, transport bar pinned to the bottom like a stage manager's desk.
+   Look: "vintage military cinema" — black foundation, muted gold accent, warm off-white text, film grain, thin gold rules, square geometry. */
 :root {
-  --stage: #131217;
-  --boards: #1c1b22;
-  --rule: #2e2c36;
-  --ink: #ece8de;
-  --dim: #9a96a5;
-  --spot: #f2c24f;
-  --spotwash: rgba(242, 194, 79, .10);
-  --me: #84d3c4;
-  --mewash: rgba(132, 211, 196, .10);
-  --danger: #f0907a;
-  --miss: #ff5a52;
-  --ui: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --script: "Courier Prime", "Rubik", "Courier New", monospace;
+  --black: #070606;
+  --charcoal: #191615;
+  --warm-gray: #322E2B;
+  --gold: #CCA858;
+  --gold-2: #A37B45;
+  --bronze: #76532A;
+  --ink: #E9DFD9;
+  --ink-2: #D1CECA;
+  --mute: #726F6D;
+  --red: #8B2925;
+  --red-ink: #C4665C;
+  --goldwash: rgba(204, 168, 88, .09);
+  --goldwash-2: rgba(204, 168, 88, .16);
+  --metal: linear-gradient(90deg, #A37B45, #E0C47A 50%, #A37B45);
+  --shadow: 0 2px 10px rgba(0, 0, 0, .35);
+  --shadow-deep: 0 8px 24px rgba(0, 0, 0, .55);
+  --display: "Anton", "Secular One", "Oswald", Impact, sans-serif;
+  --label: "Oswald", "Heebo", "Arial Narrow", sans-serif;
+  --ui: "Inter", "Heebo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --script: "Courier Prime", "Heebo", "Courier New", monospace;
   color-scheme: dark;
 }
 * { box-sizing: border-box }
-html, body { background: var(--stage); color: var(--ink) }
-body { font: 16px/1.5 var(--ui); padding-inline: 16px; -webkit-tap-highlight-color: transparent;
-  background-image: radial-gradient(60rem 30rem at 50% -10rem, rgba(242,194,79,.07), transparent 70%); background-attachment: fixed }
+html, body { background: var(--black); color: var(--ink) }
+body { font: 16px/1.6 var(--ui); padding-inline: 16px; -webkit-tap-highlight-color: transparent; min-height: 100vh;
+  background-image:
+    radial-gradient(70rem 34rem at 50% -14rem, rgba(204, 168, 88, .08), transparent 70%),
+    radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, .65)),
+    linear-gradient(180deg, var(--black), var(--charcoal));
+  background-attachment: fixed }
+/* film grain over everything, faint enough to keep text crisp */
+body::after { content: ''; position: fixed; inset: -50%; pointer-events: none; z-index: 100; opacity: .07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .92 0 0 0 0 .8 0 0 0 1.6 -.3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") }
+::selection { background: var(--gold); color: var(--black) }
 button, input, select { font: inherit; color: inherit }
-button { cursor: pointer; border: 1px solid var(--rule); background: var(--boards); border-radius: 10px; padding: .6em 1em; min-height: 44px }
-button:hover { border-color: var(--dim) }
-button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .drop:focus-within { outline: 2px solid var(--spot); outline-offset: 2px }
-button.primary { background: var(--spot); color: #1a1408; border-color: var(--spot); font-weight: 700 }
-button.ghost { background: transparent }
-button:disabled { opacity: .45; cursor: default }
+
+/* buttons: square, stencilled labels */
+button { cursor: pointer; border: 1px solid var(--gold-2); background: var(--charcoal); color: var(--ink); border-radius: 2px; padding: .55em 1.1em; min-height: 44px;
+  font-family: var(--label); font-weight: 500; font-size: 15px; letter-spacing: .1em; text-transform: uppercase; transition: border-color .15s, background .15s, color .15s }
+button:hover { border-color: var(--gold); background: #211d1b }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .drop:focus-within { outline: 2px solid var(--gold); outline-offset: 2px }
+button.primary { background: var(--gold); color: var(--black); border-color: var(--gold); font-weight: 700; box-shadow: var(--shadow) }
+button.primary:hover { background: #D6B66A; border-color: #D6B66A }
+button.ghost { background: transparent; border-color: var(--warm-gray); color: var(--ink-2) }
+button.ghost:hover { border-color: var(--gold-2); color: var(--gold) }
+button:disabled, button:disabled:hover { opacity: .4; cursor: default; background: var(--charcoal); color: var(--mute); border-color: var(--warm-gray); box-shadow: none }
+
 .app { max-width: 46rem; margin: 0 auto; padding-block: 12px 260px }
-.top { display: flex; align-items: center; gap: 12px; padding-block: 8px 20px; flex-wrap: wrap }
-.brand { font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--spot) }
-.doc { flex: 1; min-width: 0; color: var(--dim); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-h1 { font-size: clamp(28px, 6vw, 40px); line-height: 1.1; margin: 8px 0 12px; text-wrap: balance; font-weight: 700 }
-h2 { font-size: 24px; margin: 0 0 6px; text-wrap: balance }
-.lead { color: var(--dim); max-width: 34em; margin: 0 0 24px }
+.top { display: flex; align-items: center; gap: 12px; padding-block: 10px 14px; margin-bottom: 28px; flex-wrap: wrap; border-bottom: 1px solid var(--warm-gray) }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--label); font-weight: 700; letter-spacing: .28em; text-transform: uppercase; font-size: 14px; color: var(--gold) }
+.brand svg { width: 22px; height: 22px; flex: none }
+.doc { flex: 1; min-width: 0; color: var(--mute); font-family: var(--label); letter-spacing: .08em; text-transform: uppercase; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.top button { min-height: 40px; font-size: 13px }
+
+/* labels, headings, rules */
+.eyebrow { margin: 0; font-family: var(--label); font-weight: 500; font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: var(--gold-2) }
+.eyebrow b { color: var(--gold); font-weight: 700 }
+h1, h2 { font-family: var(--display); font-weight: 400; text-transform: uppercase; color: var(--gold); text-wrap: balance; letter-spacing: .01em }
+h1 { font-size: clamp(38px, 9vw, 68px); line-height: .98; margin: 6px 0 0; max-width: 11em; text-shadow: 0 2px 0 rgba(0, 0, 0, .55) }
+h2 { font-size: clamp(30px, 6vw, 42px); line-height: 1; margin: 0 }
+h1::after, h2::after { content: ''; display: block; width: 88px; height: 1px; margin-top: 18px; background: var(--metal) }
+.lead { color: var(--ink-2); max-width: 34em; margin: 4px 0 20px; font-size: 17px }
 section { display: flex; flex-direction: column; gap: 16px; align-items: flex-start }
-.drop { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; width: 100%;
-  padding: 36px 16px; border: 1.5px dashed var(--rule); border-radius: 14px; background: var(--boards); cursor: pointer; text-align: center }
-.drop.over { border-color: var(--spot); background: var(--spotwash) }
-.drop strong { font-size: 18px }
-.drop span { color: var(--dim); font-size: 14px }
+
+/* the drop zone: an archive document with an inner frame */
+.drop { position: relative; display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; width: 100%;
+  padding: 44px 20px; border: 1px solid var(--warm-gray); border-radius: 3px; background: var(--charcoal); cursor: pointer; text-align: center;
+  box-shadow: inset 0 0 0 7px var(--charcoal), inset 0 0 0 8px rgba(163, 123, 69, .45), var(--shadow-deep); transition: background .15s, border-color .15s }
+.drop:hover { border-color: var(--gold-2) }
+.drop.over { border-color: var(--gold); background: #1f1b17 }
+.drop strong { font-family: var(--label); font-weight: 600; font-size: 20px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold) }
+.drop span { color: var(--ink-2); font-size: 14px }
 .drop input { position: absolute; opacity: 0; width: 1px; height: 1px }
-.err { color: var(--danger); margin: 0 }
-.note { color: var(--dim); font-size: 14px; margin: 0 }
-details.fmt { color: var(--dim); font-size: 14px; max-width: 36em }
-details.fmt summary { cursor: pointer; color: var(--ink) }
-details.fmt pre { font-family: var(--script); background: var(--boards); padding: 10px 12px; border-radius: 8px; overflow-x: auto; color: var(--ink) }
+.err { color: var(--red-ink); margin: 0; padding-inline-start: 12px; border-inline-start: 2px solid var(--red) }
+.note { color: var(--ink-2); font-size: 14px; margin: 0 }
+details.fmt { color: var(--ink-2); font-size: 14px; max-width: 36em; width: 100%; border-top: 1px solid var(--warm-gray); padding-top: 14px }
+details.fmt summary { cursor: pointer; color: var(--gold-2); font-family: var(--label); letter-spacing: .14em; text-transform: uppercase; font-size: 13px }
+details.fmt summary:hover { color: var(--gold) }
+details.fmt pre { font-family: var(--script); background: var(--charcoal); border: 1px solid var(--warm-gray); border-inline-start: 2px solid var(--bronze); padding: 10px 12px; border-radius: 2px; overflow-x: auto; color: var(--ink) }
+
+/* cast chips: squared tags, gold when chosen */
 .chips { display: flex; flex-wrap: wrap; gap: 8px }
-.chip { display: inline-flex; gap: 8px; align-items: baseline; border-radius: 999px; padding: .5em 1em }
-.chip small { color: var(--dim); font-variant-numeric: tabular-nums }
-.chip[aria-pressed="true"] { background: var(--mewash); border-color: var(--me); color: var(--me) }
-.chip[aria-pressed="true"] small { color: var(--me) }
+.chip { display: inline-flex; gap: 10px; align-items: baseline; border-color: var(--warm-gray); padding: .5em 1em; font-size: 15px }
+.chip small { color: var(--mute); font-family: var(--ui); font-size: 12px; letter-spacing: .04em; text-transform: none; font-variant-numeric: tabular-nums }
+.chip[aria-pressed="true"] { background: var(--goldwash-2); border-color: var(--gold); color: var(--gold) }
+.chip[aria-pressed="true"] small { color: var(--gold-2) }
 
 /* the script, laid out like a stage script: name centred over the speech */
 .script { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 4px }
-.script li { padding: 10px 12px; border-radius: 10px; cursor: pointer; scroll-margin: 30vh }
-.script li:hover { background: var(--boards) }
-.who { display: block; text-align: center; font-family: var(--script); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 14px; color: var(--dim) }
-.txt { margin: 2px auto 0; max-width: 34em; font-family: var(--script); font-size: 17px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere }
-.script li.dir .txt { font-style: italic; color: var(--dim); font-size: 15px; padding-inline: 1.5em }
-.script li.mine .who { color: var(--me) }
-.script li.mine .txt { color: var(--me) }
-.script li.current { background: var(--spotwash) }
-.script li.current .who { color: var(--spot) }
-.script li.mine.current { background: var(--mewash) }
-.script li.mine.current .who { color: var(--me) }
+.script li { padding: 12px 14px; border-radius: 2px; cursor: pointer; scroll-margin: 30vh; border-inline-start: 2px solid transparent; transition: background .2s }
+.script li:hover { background: var(--charcoal) }
+.who { display: block; text-align: center; font-family: var(--label); font-weight: 500; letter-spacing: .22em; text-transform: uppercase; font-size: 13px; color: var(--mute) }
+.txt { margin: 4px auto 0; max-width: 34em; font-family: var(--script); font-size: 17px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink) }
+.script li.dir .txt { font-style: italic; color: var(--ink-2); opacity: .75; font-size: 15px; padding-inline: 1.5em }
+.script li.mine { border-inline-start-color: var(--bronze) }
+.script li.mine .who { color: var(--gold-2) }
+.script li.mine .txt { color: var(--gold) }
+.script li.current { background: var(--goldwash); border-inline-start-color: var(--gold) }
+.script li.current .who { color: var(--gold) }
+.script li.mine.current { background: var(--goldwash-2) }
 .hide-mine .script li.mine:not(.revealed) .txt { filter: blur(7px); user-select: none }
 
-/* transport bar */
-.bar { position: fixed; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--boards) 94%, transparent); backdrop-filter: blur(8px);
-  border-top: 1px solid var(--rule); padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); max-height: 85vh; overflow-y: auto }
+/* transport bar: the desk, under a metallic rule */
+.bar { position: fixed; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--black) 95%, transparent); backdrop-filter: blur(6px);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); max-height: 85vh; overflow-y: auto; box-shadow: 0 -10px 30px rgba(0, 0, 0, .55) }
+.bar::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--gold-2) 20%, #E0C47A 50%, var(--gold-2) 80%, transparent) }
 .bar-in { max-width: 46rem; margin: 0 auto; display: flex; flex-direction: column; gap: 10px }
 .status { display: flex; align-items: center; gap: 10px; min-height: 28px; flex-wrap: wrap }
-.pill { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: var(--rule); color: var(--ink) }
-.pill.reading { background: var(--spot); color: #1a1408 }
-.pill.you { background: var(--me); color: #0c201c }
-.pill.heard { background: var(--me); color: #0c201c; animation: pulse 1s ease-in-out infinite }
+.pill { font-family: var(--label); font-size: 12px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; padding: 3px 10px; border-radius: 1px; background: var(--warm-gray); color: var(--ink) }
+.pill.reading { background: var(--gold); color: var(--black) }
+.pill.you { background: var(--ink); color: var(--black) }
+.pill.heard { background: var(--ink); color: var(--black); animation: pulse 1s ease-in-out infinite }
 @keyframes pulse { 50% { opacity: .6 } }
 @media (prefers-reduced-motion: reduce) { .pill.heard { animation: none } }
-#statusText { color: var(--dim); font-size: 14px; min-width: 0 }
-.meter { position: relative; height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden }
-.meter i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--me); transition: width .05s linear }
+#statusText { color: var(--ink-2); font-size: 14px; min-width: 0 }
+.meter { position: relative; height: 4px; border-radius: 0; background: var(--warm-gray); overflow: hidden }
+.meter i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--bronze), var(--gold)); transition: width .05s linear }
 .meter b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .7 }
 .controls { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 8px }
 .controls button { min-height: 52px }
-details.settings summary { cursor: pointer; color: var(--dim); font-size: 14px; padding: 4px 0 }
-.set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 12px 20px; padding-top: 10px }
-.set-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--dim) }
+.controls .primary { font-size: 17px }
+details.settings { border-top: 1px solid var(--warm-gray); padding-top: 4px }
+details.settings summary { cursor: pointer; color: var(--gold-2); font-family: var(--label); letter-spacing: .16em; text-transform: uppercase; font-size: 13px; padding: 6px 0 }
+details.settings summary:hover { color: var(--gold) }
+.set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 14px 20px; padding-top: 10px }
+.set-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--ink-2) }
 .set-grid label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink) }
-.set-grid output { color: var(--ink); font-variant-numeric: tabular-nums }
-.set-grid input[type=range] { width: 100%; accent-color: var(--spot) }
-.set-grid select { background: var(--stage); border: 1px solid var(--rule); border-radius: 8px; padding: 8px }
+.set-grid label.check input { accent-color: var(--gold); width: 16px; height: 16px }
+.set-grid output { color: var(--gold); font-family: var(--label); letter-spacing: .06em; font-variant-numeric: tabular-nums }
+.set-grid input[type=range] { width: 100%; accent-color: var(--gold) }
+.set-grid select { background: var(--charcoal); border: 1px solid var(--warm-gray); border-radius: 2px; padding: 8px }
 .set-btns { display: flex; gap: 8px; flex-wrap: wrap }
+.set-btns button { font-size: 13px }
 .toggles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
-.switch { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; font-size: 14px; min-height: 40px; user-select: none }
-.switch input { appearance: none; -webkit-appearance: none; flex: none; width: 38px; height: 24px; border-radius: 12px; background: var(--rule); position: relative; margin: 0; cursor: pointer; transition: background .15s }
-.switch input::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); transition: transform .15s }
-.switch input:checked { background: var(--me) }
-.switch input:checked::after { transform: translateX(14px); background: #0c201c }
-[dir=rtl] .switch input:checked::after { transform: translateX(-14px) }
+.switch { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border: 1px solid var(--warm-gray); border-radius: 2px; cursor: pointer; font-size: 14px; color: var(--ink-2); min-height: 40px; user-select: none }
+[dir=rtl] .switch { padding: 6px 6px 6px 14px }
+.switch input { appearance: none; -webkit-appearance: none; flex: none; width: 38px; height: 22px; border-radius: 1px; background: var(--warm-gray); position: relative; margin: 0; cursor: pointer; transition: background .15s }
+.switch input::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 16px; height: 16px; border-radius: 1px; background: var(--ink-2); transition: transform .15s }
+.switch input:checked { background: var(--gold) }
+.switch input:checked::after { transform: translateX(16px); background: var(--black) }
+.switch:has(input:checked) { border-color: var(--gold-2); color: var(--ink) }
+[dir=rtl] .switch input:checked::after { transform: translateX(-16px) }
 .switch.off { opacity: .4; cursor: default }
 .switch.off input { cursor: default }
 .toggles .note { font-size: 13px }
-.said { margin: 4px auto 0; max-width: 34em; font-size: 13px; color: var(--dim); font-family: var(--ui) }
-.said.bad { color: var(--miss) }
-.pill.prompt { background: var(--miss); color: #2a0806 }
+.said { margin: 6px auto 0; max-width: 34em; font-size: 13px; color: var(--ink-2); font-family: var(--ui) }
+.said.bad { color: var(--red-ink) }
+.pill.prompt { background: var(--red); color: var(--ink) }
+
+/* the miss mark: a red stamp with worn edges */
 #miss { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 50 }
-#miss svg { width: min(55vw, 300px); height: auto; opacity: 0; filter: drop-shadow(0 0 30px rgba(255, 90, 82, .45)) }
+#miss svg { width: min(55vw, 300px); height: auto; opacity: 0; filter: drop-shadow(0 6px 24px rgba(0, 0, 0, .55)) }
 #miss.show svg { animation: miss .9s ease-out }
-@keyframes miss { 0% { opacity: 0; transform: scale(.6) } 15% { opacity: 1; transform: scale(1) } 70% { opacity: 1 } 100% { opacity: 0; transform: scale(1.04) } }
+@keyframes miss { 0% { opacity: 0; transform: scale(1.5) rotate(-8deg) } 15% { opacity: .95; transform: scale(1) rotate(-8deg) } 70% { opacity: .95; transform: rotate(-8deg) } 100% { opacity: 0; transform: scale(1.02) rotate(-8deg) } }
 @media (prefers-reduced-motion: reduce) { #miss.show svg { animation: missFlat .9s steps(1, end) } }
-@keyframes missFlat { 0% { opacity: 1 } 100% { opacity: 0 } }
+@keyframes missFlat { 0% { opacity: .95 } 100% { opacity: 0 } }
+
+/* Hebrew has no capitals and suffers from wide tracking */
+:root[lang=he] .eyebrow, :root[lang=he] button, :root[lang=he] .pill, :root[lang=he] summary, :root[lang=he] .drop strong { letter-spacing: .02em }
+:root[lang=he] h1 { line-height: 1.1 }
 </style>
 
 <div class="app" id="app">
   <header class="top">
-    <div class="brand">Playmate</div>
+    <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2.5 21.5 12 12 21.5 2.5 12Z"/><path d="M7.5 10.5 12 14l4.5-3.5M7.5 14 12 17.5l4.5-3.5"/></svg>Playmate</div>
     <div class="doc" id="docTitle" dir="auto"></div>
     <button id="newBtn" class="ghost" hidden data-t="newScript">New script</button>
     <button id="uiLangBtn" class="ghost" lang="he">עברית</button>
   </header>
 
   <section id="loadView">
+    <p class="eyebrow"><b>01</b> — <span data-t="eyebrowLoad">Script rehearsal</span></p>
     <h1 data-t="heroTitle">Run lines with a scene partner who never gets tired.</h1>
     <p class="lead" data-t="heroLead">Upload your play as a Word file and pick your character. Playmate reads everyone else's lines aloud, then waits while you say yours and carries on when you go quiet.</p>
     <label class="drop" id="drop" for="file">
@@ -156,6 +208,7 @@ You're late again.</pre>
   </section>
 
   <section id="castView" hidden>
+    <p class="eyebrow"><b>02</b> — <span data-t="eyebrowCast">Casting</span></p>
     <h2 data-t="whoPlaying">Who are you playing?</h2>
     <p class="note" id="castMeta"></p>
     <div class="chips" id="chips"></div>
@@ -200,7 +253,7 @@ You're late again.</pre>
   </div>
 </div>
 
-<div id="miss" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M18 18 L82 82 M82 18 L18 82" stroke="var(--miss)" stroke-width="14" stroke-linecap="round" fill="none"/></svg></div>
+<div id="miss" aria-hidden="true"><svg viewBox="0 0 100 100"><filter id="worn"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="3.5"/></filter><g filter="url(#worn)" stroke="var(--red)" fill="none"><rect x="6" y="6" width="88" height="88" stroke-width="4"/><path d="M24 24 L76 76 M76 24 L24 76" stroke-width="13"/></g></svg></div>
 
 <script>
 (() => {
@@ -213,7 +266,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const STR = {
   en: {
-    other: 'עברית', newScript: 'New script',
+    other: 'עברית', newScript: 'New script', eyebrowLoad: 'Script rehearsal', eyebrowCast: 'Casting',
     heroTitle: 'Run lines with a scene partner who never gets tired.',
     heroLead: "Upload your play as a Word file and pick your character. Playmate reads everyone else's lines aloud, then waits while you say yours and carries on when you go quiet.",
     chooseFile: 'Choose a .docx file', dropHere: 'or drop it here', sample: 'Try a sample scene',
@@ -246,7 +299,7 @@ const STR = {
     continueText: 'Press Play to continue where you left off.'
   },
   he: {
-    other: 'English', newScript: 'מחזה חדש',
+    other: 'English', newScript: 'מחזה חדש', eyebrowLoad: 'חזרות על מחזה', eyebrowCast: 'ליהוק',
     heroTitle: 'חזרות על הטקסט עם פרטנר לסצנה שאף פעם לא מתעייף.',
     heroLead: 'העלו את המחזה כקובץ Word ובחרו את הדמות שלכם. Playmate מקריא בקול את השורות של כל השאר, מחכה בזמן שאתם אומרים את שלכם, וממשיך כשאתם משתתקים.',
     chooseFile: 'בחירת קובץ Word', dropHere: 'או גררו אותו לכאן', sample: 'נסו סצנה לדוגמה (באנגלית)',
