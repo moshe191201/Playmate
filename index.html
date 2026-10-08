@@ -23,6 +23,7 @@
   --me: #84d3c4;
   --mewash: rgba(132, 211, 196, .10);
   --danger: #f0907a;
+  --miss: #ff5a52;
   --ui: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
   --script: "Courier Prime", "Rubik", "Courier New", monospace;
   color-scheme: dark;
@@ -103,6 +104,24 @@ details.settings summary { cursor: pointer; color: var(--dim); font-size: 14px; 
 .set-grid input[type=range] { width: 100%; accent-color: var(--spot) }
 .set-grid select { background: var(--stage); border: 1px solid var(--rule); border-radius: 8px; padding: 8px }
 .set-btns { display: flex; gap: 8px; flex-wrap: wrap }
+.toggles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.switch { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; font-size: 14px; min-height: 40px; user-select: none }
+.switch input { appearance: none; -webkit-appearance: none; flex: none; width: 38px; height: 24px; border-radius: 12px; background: var(--rule); position: relative; margin: 0; cursor: pointer; transition: background .15s }
+.switch input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); transition: transform .15s }
+.switch input:checked { background: var(--me) }
+.switch input:checked::after { transform: translateX(14px); background: #0c201c }
+.switch.off { opacity: .4; cursor: default }
+.switch.off input { cursor: default }
+.toggles .note { font-size: 13px }
+.said { margin: 4px auto 0; max-width: 34em; font-size: 13px; color: var(--dim); font-family: var(--ui) }
+.said.bad { color: var(--miss) }
+.pill.prompt { background: var(--miss); color: #2a0806 }
+#miss { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 50 }
+#miss svg { width: min(55vw, 300px); height: auto; opacity: 0; filter: drop-shadow(0 0 30px rgba(255, 90, 82, .45)) }
+#miss.show svg { animation: miss .9s ease-out }
+@keyframes miss { 0% { opacity: 0; transform: scale(.6) } 15% { opacity: 1; transform: scale(1) } 70% { opacity: 1 } 100% { opacity: 0; transform: scale(1.04) } }
+@media (prefers-reduced-motion: reduce) { #miss.show svg { animation: missFlat .9s steps(1, end) } }
+@keyframes missFlat { 0% { opacity: 1 } 100% { opacity: 0 } }
 </style>
 
 <div class="app" id="app">
@@ -150,6 +169,11 @@ You're late again.</pre>
   <div class="bar-in">
     <div class="status"><span class="pill" id="pill">Ready</span><span id="statusText" dir="auto">Press Play to begin.</span></div>
     <div class="meter" id="meter" hidden><i id="meterFill"></i><b id="meterThr"></b></div>
+    <div class="toggles">
+      <label class="switch"><input type="checkbox" id="checkLines"><span>Check my lines</span></label>
+      <label class="switch off" id="readMistakesWrap"><input type="checkbox" id="readMistakes" disabled><span>Read mistakes aloud</span></label>
+      <span class="note" id="srNote" hidden></span>
+    </div>
     <div class="controls">
       <button id="prevBtn">◀ Back</button>
       <button id="playBtn" class="primary">▶ Play</button>
@@ -162,6 +186,7 @@ You're late again.</pre>
         <label>Silence that ends your line <output id="silOut"></output><input type="range" id="sil" min="0.6" max="4" step="0.1"></label>
         <label>Mic sensitivity <output id="sensOut"></output><input type="range" id="sens" min="1" max="5" step="1"></label>
         <label>Voice language <select id="langSel"></select></label>
+        <label>Line check strictness <output id="strictOut"></output><input type="range" id="strict" min="1" max="3" step="1"></label>
         <label class="check"><input type="checkbox" id="readDirs"> Read stage directions aloud</label>
         <label class="check"><input type="checkbox" id="hideMine"> Blur my lines (tap one to peek)</label>
         <div class="set-btns">
@@ -173,6 +198,8 @@ You're late again.</pre>
   </div>
 </div>
 
+<div id="miss" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M18 18 L82 82 M82 18 L18 82" stroke="var(--miss)" stroke-width="14" stroke-linecap="round" fill="none"/></svg></div>
+
 <script>
 (() => {
 const $ = id => document.getElementById(id);
@@ -183,7 +210,7 @@ const persist = () => { try { localStorage.setItem(KEY, JSON.stringify({ title: 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const saved = load();
-const settings = Object.assign({ rate: 1, silence: 1.5, sens: 3, readDirs: false, hideMine: false, voiceLang: 'auto' }, saved?.settings || {});
+const settings = Object.assign({ rate: 1, silence: 1.5, sens: 3, readDirs: false, hideMine: false, voiceLang: 'auto', checkLines: false, readMistakes: false, strict: 2 }, saved?.settings || {});
 const S = { title: '', items: [], chars: [], lang: 'en', mine: new Set(), idx: 0 };
 
 /* ---------- reading the .docx ---------- */
@@ -451,7 +478,66 @@ async function speak(text, slot, my) {
     if (stepAbort === null) skipped = true;
   }
 }
-const spoken = t => settings.readDirs ? t : t.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+const stripDirs = t => t.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+const spoken = t => settings.readDirs ? t : stripDirs(t);
+
+/* ---------- speech recognition: did you say the right words? ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function startRec(onText) {
+  const st = { prev: '', cur: '', failed: false, alive: true, restarts: 0, text() { return (this.prev + ' ' + this.cur).replace(/\s+/g, ' ').trim(); } };
+  let r;
+  try {
+    r = new SR(); r.lang = FULL[langNow()] || langNow(); r.continuous = true; r.interimResults = true;
+  } catch { st.failed = true; return st; }
+  r.onresult = e => {
+    let t = ''; for (let i = 0; i < e.results.length; i++) t += ' ' + e.results[i][0].transcript;
+    st.cur = t; onText(st.text());
+  };
+  r.onerror = e => { if (/not-allowed|service-not-allowed|audio-capture|language-not-supported/.test(e.error)) st.failed = true; };
+  r.onend = () => {
+    st.prev += ' ' + st.cur; st.cur = '';
+    if (st.alive && !st.failed && st.restarts++ < 20) { try { r.start(); } catch {} }
+  };
+  try { r.start(); } catch { st.failed = true; }
+  st.stop = () => { st.alive = false; try { r.abort(); } catch {} };
+  return st;
+}
+const STRICT = [0, 0.55, 0.72, 0.88];
+const words = s => s.toLocaleLowerCase().normalize('NFKD').replace(/[\u0591-\u05C7\u0300-\u036f]/g, '')
+  .replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+function lev(a, b) {
+  const d = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = d[0]; d[0] = i;
+    for (let j = 1; j <= b.length; j++) { const tmp = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = tmp; }
+  }
+  return d[b.length];
+}
+function sameWord(a, b) {
+  if (a === b) return true;
+  // Hebrew one-letter prefixes (ו ה ב ל מ ש כ) are often split or merged by the recogniser
+  const bare = w => w.length > 2 && /^[והבלמשכ]/.test(w) ? w.slice(1) : w;
+  if (bare(a) === bare(b) || bare(a) === b || a === bare(b)) return true;
+  const L = Math.max(a.length, b.length), dist = lev(a, b);
+  return (L >= 4 && dist <= 1) || (L >= 7 && dist <= 2);
+}
+function lineScore(expected, said) {
+  const e = words(expected), s = words(said);
+  if (!e.length) return 1;
+  if (!s.length) return 0;
+  const m = Array.from({ length: e.length + 1 }, () => new Array(s.length + 1).fill(0));
+  for (let i = 1; i <= e.length; i++) for (let j = 1; j <= s.length; j++)
+    m[i][j] = sameWord(e[i - 1], s[j - 1]) ? m[i - 1][j - 1] + 1 : Math.max(m[i - 1][j], m[i][j - 1]);
+  return 2 * m[e.length][s.length] / (e.length + s.length);
+}
+function flashMiss() { const m = $('miss'); m.classList.remove('show'); void m.offsetWidth; m.classList.add('show'); }
+function showHeard(k, said, score, bad) {
+  const li = lis[k]; if (!li) return;
+  let h = li.querySelector('.said');
+  if (!h) { h = document.createElement('p'); h.className = 'said'; h.dir = 'auto'; li.append(h); }
+  h.classList.toggle('bad', bad);
+  h.textContent = `Heard: \u201c${said}\u201d \u00b7 ${Math.round(score * 100)}% match`;
+}
 
 /* ---------- microphone: notice when you start and stop talking ---------- */
 let actx = null, analyser = null, buf = null, mic = false, micTried = false, floor = 0.003;
@@ -475,25 +561,31 @@ function meter(r, thr) {
 }
 function listen(my) {
   return new Promise(res => {
-    let iv = null, finished = false;
-    const finish = () => { if (finished) return; finished = true; clearInterval(iv); $('meter').hidden = true; res(); };
+    let iv = null, finished = false, rs = null;
+    const finish = () => {
+      if (finished) return; finished = true; clearInterval(iv); $('meter').hidden = true;
+      rs?.stop();
+      const said = rs ? rs.text() : '';
+      res({ said, judged: !!(rs && said) });
+    };
     stepAbort = finish;
-    if (!mic) { status('you', 'Your line', micTried ? 'Say your line, then tap Done (or press Space).' : 'Your line. Tap Done when finished.'); return; }
+    let heard = false, lastAct = Date.now();
+    const onHeard = () => { if (!heard) { heard = true; status('heard', 'Listening', 'Hearing you…'); } };
+    if (settings.checkLines && SR) rs = startRec(text => { lastAct = Date.now(); if (text) { onHeard(); $('statusText').textContent = text; } });
+    if (!mic && (!rs || rs.failed)) { status('you', 'Your line', micTried ? 'Say your line, then tap Done (or press Space).' : 'Your line. Tap Done when finished.'); return; }
     status('you', 'Your line', 'Go ahead. I move on when you stop talking.');
-    $('meter').hidden = false;
-    let voiceMs = 0, quietMs = 0, heard = false; const t0 = Date.now();
+    $('meter').hidden = !mic;
+    let voiceMs = 0; const t0 = Date.now();
     iv = setInterval(() => {
       if (my !== token) return finish();
-      const r = rms(), thr = threshold(); meter(r, thr);
-      if (Date.now() - t0 < 250) return;
-      if (r > thr) {
-        voiceMs += 50; quietMs = 0;
-        if (!heard && voiceMs >= 150) { heard = true; status('heard', 'Listening', 'Hearing you…'); }
-      } else {
-        floor = Math.min(floor * 0.98 + r * 0.02, 0.05);
-        voiceMs = Math.max(0, voiceMs - 25);
-        if (heard && (quietMs += 50) >= settings.silence * 1000) finish();
+      const now = Date.now();
+      if (mic) {
+        const r = rms(), thr = threshold(); meter(r, thr);
+        if (now - t0 < 250) return;
+        if (r > thr) { voiceMs += 50; lastAct = now; if (voiceMs >= 150) onHeard(); }
+        else { floor = Math.min(floor * 0.98 + r * 0.02, 0.05); voiceMs = Math.max(0, voiceMs - 25); }
       }
+      if (heard && now - lastAct >= settings.silence * 1000) finish();
     }, 50);
   });
 }
@@ -517,10 +609,22 @@ async function runFrom(i) {
       continue;
     }
     if (S.mine.has(it.key)) {
-      await listen(my);
+      const expected = stripDirs(it.text);
+      if (!expected) continue;
+      const { said, judged } = await listen(my);
       if (my !== token) return;
       lis[k]?.classList.add('revealed');
       stepAbort = null;
+      if (settings.checkLines && judged) {
+        const score = lineScore(expected, said), bad = score < STRICT[settings.strict];
+        showHeard(k, said, score, bad);
+        if (bad && settings.readMistakes) {
+          status('prompt', 'The line is', expected.length > 90 ? expected.slice(0, 90) + '…' : expected);
+          await speak(expected, 0, my);
+          stepAbort = null;
+          if (my !== token) return;
+        } else if (bad) flashMiss();
+      }
       await sleep(120);
     } else {
       const t = spoken(it.text);
@@ -545,6 +649,7 @@ async function play() {
   // these must happen inside the tap so phones allow sound
   speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(' '));
   actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.();
+  if (settings.checkLines) primeRec();
   running = true; syncPlay(); status('', 'Starting', mic ? '' : 'Asking for the microphone…');
   await initMic();
   if (!mic) status('', 'No mic', 'Microphone unavailable. Tap Done after each of your lines.');
@@ -576,6 +681,25 @@ function bindRange(id, outId, key, fmt) {
 bindRange('rate', 'rateOut', 'rate', v => v.toFixed(1) + '×');
 bindRange('sil', 'silOut', 'silence', v => v.toFixed(1) + ' s');
 bindRange('sens', 'sensOut', 'sens', v => ['', 'low', 'medium-low', 'medium', 'high', 'very high'][v]);
+bindRange('strict', 'strictOut', 'strict', v => ['', 'lenient', 'normal', 'strict'][v]);
+let primed = false;
+function primeRec() {
+  // ask for recognition permission while we still have the tap
+  if (primed || !SR) return; primed = true;
+  try { const r = new SR(); r.lang = FULL[langNow()] || langNow(); r.onerror = () => {}; r.start(); setTimeout(() => { try { r.abort(); } catch {} }, 300); } catch {}
+}
+function syncToggles() {
+  $('checkLines').checked = settings.checkLines && !!SR;
+  $('checkLines').disabled = !SR;
+  $('checkLines').parentElement.classList.toggle('off', !SR);
+  const on = settings.checkLines && !!SR;
+  $('readMistakes').disabled = !on; $('readMistakes').checked = on && settings.readMistakes;
+  $('readMistakesWrap').classList.toggle('off', !on);
+  if (!SR) { $('srNote').hidden = false; $('srNote').textContent = 'Line checking needs Chrome, Edge or Safari.'; }
+}
+$('checkLines').onchange = e => { settings.checkLines = e.target.checked; if (settings.checkLines) primeRec(); syncToggles(); persist(); };
+$('readMistakes').onchange = e => { settings.readMistakes = e.target.checked; persist(); };
+syncToggles();
 $('readDirs').checked = settings.readDirs; $('readDirs').onchange = e => { settings.readDirs = e.target.checked; persist(); };
 $('hideMine').checked = settings.hideMine; $('hideMine').onchange = e => { settings.hideMine = e.target.checked; document.body.classList.toggle('hide-mine', settings.hideMine); persist(); };
 $('langSel').onchange = e => { settings.voiceLang = e.target.value; persist(); };
