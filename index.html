@@ -107,9 +107,10 @@ details.settings summary { cursor: pointer; color: var(--dim); font-size: 14px; 
 .toggles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .switch { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; font-size: 14px; min-height: 40px; user-select: none }
 .switch input { appearance: none; -webkit-appearance: none; flex: none; width: 38px; height: 24px; border-radius: 12px; background: var(--rule); position: relative; margin: 0; cursor: pointer; transition: background .15s }
-.switch input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); transition: transform .15s }
+.switch input::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); transition: transform .15s }
 .switch input:checked { background: var(--me) }
 .switch input:checked::after { transform: translateX(14px); background: #0c201c }
+[dir=rtl] .switch input:checked::after { transform: translateX(-14px) }
 .switch.off { opacity: .4; cursor: default }
 .switch.off input { cursor: default }
 .toggles .note { font-size: 13px }
@@ -128,36 +129,37 @@ details.settings summary { cursor: pointer; color: var(--dim); font-size: 14px; 
   <header class="top">
     <div class="brand">Playmate</div>
     <div class="doc" id="docTitle" dir="auto"></div>
-    <button id="newBtn" class="ghost" hidden>New script</button>
+    <button id="newBtn" class="ghost" hidden data-t="newScript">New script</button>
+    <button id="uiLangBtn" class="ghost" lang="he">עברית</button>
   </header>
 
   <section id="loadView">
-    <h1>Run lines with a scene partner who never gets tired.</h1>
-    <p class="lead">Upload your play as a Word file and pick your character. Playmate reads everyone else's lines aloud, then waits while you say yours and carries on when you go quiet.</p>
+    <h1 data-t="heroTitle">Run lines with a scene partner who never gets tired.</h1>
+    <p class="lead" data-t="heroLead">Upload your play as a Word file and pick your character. Playmate reads everyone else's lines aloud, then waits while you say yours and carries on when you go quiet.</p>
     <label class="drop" id="drop" for="file">
       <input type="file" id="file" accept=".docx,.txt">
-      <strong>Choose a .docx file</strong>
-      <span>or drop it here</span>
+      <strong data-t="chooseFile">Choose a .docx file</strong>
+      <span data-t="dropHere">or drop it here</span>
     </label>
     <p class="err" id="loadErr" hidden></p>
-    <button id="sampleBtn" class="ghost">Try a sample scene</button>
+    <button id="sampleBtn" class="ghost" data-t="sample">Try a sample scene</button>
     <details class="fmt">
-      <summary>Script layouts Playmate understands</summary>
-      <p>Name and colon before each speech:</p>
-<pre>MARGARET: You're late again.
+      <summary data-t="fmtSummary">Script layouts Playmate understands</summary>
+      <p data-t="fmt1">Name and colon before each speech:</p>
+<pre data-t="fmtEx1">MARGARET: You're late again.
 TOM: (out of breath) The bus broke down.</pre>
-      <p>Or the name on its own line, speech underneath:</p>
-<pre>MARGARET
+      <p data-t="fmt2">Or the name on its own line, speech underneath:</p>
+<pre data-t="fmtEx2">MARGARET
 You're late again.</pre>
-      <p>A two-column table (name | speech) also works. Lines in (parentheses), [brackets] or italics count as stage directions and are shown but not read.</p>
+      <p data-t="fmt3">A two-column table (name | speech) also works. Lines in (parentheses), [brackets] or italics count as stage directions and are shown but not read.</p>
     </details>
   </section>
 
   <section id="castView" hidden>
-    <h2>Who are you playing?</h2>
+    <h2 data-t="whoPlaying">Who are you playing?</h2>
     <p class="note" id="castMeta"></p>
     <div class="chips" id="chips"></div>
-    <button id="startBtn" class="primary" disabled>Start rehearsal</button>
+    <button id="startBtn" class="primary" disabled data-t="start">Start rehearsal</button>
   </section>
 
   <section id="stageView" hidden>
@@ -170,8 +172,8 @@ You're late again.</pre>
     <div class="status"><span class="pill" id="pill">Ready</span><span id="statusText" dir="auto">Press Play to begin.</span></div>
     <div class="meter" id="meter" hidden><i id="meterFill"></i><b id="meterThr"></b></div>
     <div class="toggles">
-      <label class="switch"><input type="checkbox" id="checkLines"><span>Check my lines</span></label>
-      <label class="switch off" id="readMistakesWrap"><input type="checkbox" id="readMistakes" disabled><span>Read mistakes aloud</span></label>
+      <label class="switch"><input type="checkbox" id="checkLines"><span data-t="checkLines">Check my lines</span></label>
+      <label class="switch off" id="readMistakesWrap"><input type="checkbox" id="readMistakes" disabled><span data-t="readMistakes">Read mistakes aloud</span></label>
       <span class="note" id="srNote" hidden></span>
     </div>
     <div class="controls">
@@ -180,18 +182,18 @@ You're late again.</pre>
       <button id="nextBtn">Skip ▶</button>
     </div>
     <details class="settings" id="settingsBox">
-      <summary>Settings</summary>
+      <summary data-t="settings">Settings</summary>
       <div class="set-grid">
-        <label>Speaking speed <output id="rateOut"></output><input type="range" id="rate" min="0.6" max="1.6" step="0.1"></label>
-        <label>Silence that ends your line <output id="silOut"></output><input type="range" id="sil" min="0.6" max="4" step="0.1"></label>
-        <label>Mic sensitivity <output id="sensOut"></output><input type="range" id="sens" min="1" max="5" step="1"></label>
-        <label>Line check strictness <output id="strictOut"></output><input type="range" id="strict" min="1" max="3" step="1"></label>
-        <label>Voice language <select id="langSel"></select></label>
-        <label class="check"><input type="checkbox" id="readDirs"> Read stage directions aloud</label>
-        <label class="check"><input type="checkbox" id="hideMine"> Blur my lines (tap one to peek)</label>
+        <label><span data-t="rate">Speaking speed</span> <output id="rateOut"></output><input type="range" id="rate" min="0.6" max="1.6" step="0.1"></label>
+        <label><span data-t="silence">Silence that ends your line</span> <output id="silOut"></output><input type="range" id="sil" min="0.6" max="4" step="0.1"></label>
+        <label><span data-t="sens">Mic sensitivity</span> <output id="sensOut"></output><input type="range" id="sens" min="1" max="5" step="1"></label>
+        <label><span data-t="strict">Line check strictness</span> <output id="strictOut"></output><input type="range" id="strict" min="1" max="3" step="1"></label>
+        <label><span data-t="voiceLang">Voice language</span> <select id="langSel"></select></label>
+        <label class="check"><input type="checkbox" id="readDirs"> <span data-t="readDirs">Read stage directions aloud</span></label>
+        <label class="check"><input type="checkbox" id="hideMine"> <span data-t="hideMine">Blur my lines (tap one to peek)</span></label>
         <div class="set-btns">
-          <button id="castBtn" class="ghost">Change character</button>
-          <button id="micBtn" class="ghost">Retry microphone</button>
+          <button id="castBtn" class="ghost" data-t="changeChar">Change character</button>
+          <button id="micBtn" class="ghost" data-t="retryMic">Retry microphone</button>
         </div>
       </div>
     </details>
@@ -209,9 +211,80 @@ const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'
 const persist = () => { try { localStorage.setItem(KEY, JSON.stringify({ title: S.title, items: S.items, chars: S.chars, lang: S.lang, mine: [...S.mine], idx: S.idx, settings })) } catch {} };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+const STR = {
+  en: {
+    other: 'עברית', newScript: 'New script',
+    heroTitle: 'Run lines with a scene partner who never gets tired.',
+    heroLead: "Upload your play as a Word file and pick your character. Playmate reads everyone else's lines aloud, then waits while you say yours and carries on when you go quiet.",
+    chooseFile: 'Choose a .docx file', dropHere: 'or drop it here', sample: 'Try a sample scene',
+    fmtSummary: 'Script layouts Playmate understands', fmt1: 'Name and colon before each speech:',
+    fmtEx1: "MARGARET: You're late again.\nTOM: (out of breath) The bus broke down.",
+    fmt2: 'Or the name on its own line, speech underneath:', fmtEx2: "MARGARET\nYou're late again.",
+    fmt3: 'A two-column table (name | speech) also works. Lines in (parentheses), [brackets] or italics count as stage directions and are shown but not read.',
+    whoPlaying: 'Who are you playing?', start: 'Start rehearsal',
+    castMeta: (l, c) => `${l} speeches and ${c} characters found. Pick one, or several if you double up.`,
+    castMetaShort: c => `${c} characters found.`,
+    lines: n => n === 1 ? '1 line' : `${n} lines`,
+    errNoLines: "Couldn't find any character speeches in that file. Check the layouts below: each speech needs the character's name before it.",
+    errDoc: 'That is an older .doc file. Open it in Word, choose Save As › Word Document (.docx), and upload that.',
+    errRead: "Couldn't read that file. Make sure it's a Word .docx document.",
+    checkLines: 'Check my lines', readMistakes: 'Read mistakes aloud', srNote: 'Line checking needs Chrome, Edge or Safari.',
+    back: '◀ Back', skip: 'Skip ▶', done: 'Done ✓', play: '▶ Play', pause: '❚❚ Pause',
+    settings: 'Settings', rate: 'Speaking speed', silence: 'Silence that ends your line', sens: 'Mic sensitivity',
+    strict: 'Line check strictness', voiceLang: 'Voice language', readDirs: 'Read stage directions aloud',
+    hideMine: 'Blur my lines (tap one to peek)', changeChar: 'Change character', retryMic: 'Retry microphone',
+    sensLevels: ['', 'low', 'medium-low', 'medium', 'high', 'very high'], strictLevels: ['', 'lenient', 'normal', 'strict'],
+    seconds: v => v.toFixed(1) + ' s', matchScript: 'Match the script',
+    heard: (said, pct) => `Heard: “${said}” · ${pct}% match`,
+    ready: 'Ready', pressPlay: 'Press Play to begin.', listening: 'Listening', hearing: 'Hearing you…',
+    yourLine: 'Your line', sayThenDone: 'Say your line, then tap Done (or press Space).', tapDone: 'Your line. Tap Done when finished.',
+    goAhead: 'Go ahead. I move on when you stop talking.', directions: 'Directions', lineIs: 'The line is',
+    curtain: 'Curtain', endText: 'End of script. Press Play to run it again, or tap any line to start there.',
+    paused: 'Paused', tapLine: 'Tap any line to start from there.', starting: 'Starting', askingMic: 'Asking for the microphone…',
+    noMic: 'No mic', noMicText: 'Microphone unavailable. Tap Done after each of your lines.', startHere: 'Press Play to start from here.',
+    micOn: 'Mic on', micConnected: 'Microphone connected.', micStill: "Still no microphone access. Check the browser's site permissions.",
+    continueText: 'Press Play to continue where you left off.'
+  },
+  he: {
+    other: 'English', newScript: 'מחזה חדש',
+    heroTitle: 'חזרות על הטקסט עם פרטנר לסצנה שאף פעם לא מתעייף.',
+    heroLead: 'העלו את המחזה כקובץ Word ובחרו את הדמות שלכם. Playmate מקריא בקול את השורות של כל השאר, מחכה בזמן שאתם אומרים את שלכם, וממשיך כשאתם משתתקים.',
+    chooseFile: 'בחירת קובץ Word', dropHere: 'או גררו אותו לכאן', sample: 'נסו סצנה לדוגמה (באנגלית)',
+    fmtSummary: 'מבנים של מחזה ש-Playmate מזהה', fmt1: 'שם הדמות ונקודתיים לפני כל קטע דיבור:',
+    fmtEx1: 'רותי: שוב איחרת.\nדני: (מתנשף) האוטובוס התקלקל.',
+    fmt2: 'או שם הדמות בשורה נפרדת, והטקסט מתחתיו:', fmtEx2: 'רותי\nשוב איחרת.',
+    fmt3: 'גם טבלה בשתי עמודות (שם | טקסט) עובדת. טקסט בסוגריים (עגולים או מרובעים) או בכתב נטוי נחשב להוראות במה: הוא מוצג על המסך אבל לא מוקרא.',
+    whoPlaying: 'את מי אתם משחקים?', start: 'התחלת חזרה',
+    castMeta: (l, c) => `נמצאו ${l} קטעי דיבור ו-${c} דמויות. בחרו דמות אחת, או כמה אם אתם משחקים יותר מתפקיד אחד.`,
+    castMetaShort: c => `נמצאו ${c} דמויות.`,
+    lines: n => n === 1 ? 'שורה אחת' : `${n} שורות`,
+    errNoLines: 'לא נמצאו בקובץ קטעי דיבור של דמויות. בדקו את המבנים שמופיעים למטה: לפני כל קטע צריך להופיע שם הדמות.',
+    errDoc: 'זה קובץ Word ישן (doc). פתחו אותו ב-Word, בחרו "שמירה בשם" ואז "מסמך Word (docx)", והעלו את הקובץ החדש.',
+    errRead: 'לא הצלחנו לקרוא את הקובץ. ודאו שזה מסמך Word מסוג docx.',
+    checkLines: 'בדיקת השורות שלי', readMistakes: 'הקראה בקול כשיש טעות', srNote: 'בדיקת שורות עובדת רק ב-Chrome, ב-Edge או ב-Safari.',
+    back: '▶ הקודם', skip: 'דלג ◀', done: 'סיימתי ✓', play: '▶ הפעלה', pause: '❚❚ השהיה',
+    settings: 'הגדרות', rate: 'מהירות הדיבור', silence: 'משך השקט שמסיים את השורה שלכם', sens: 'רגישות המיקרופון',
+    strict: 'רמת ההקפדה בבדיקה', voiceLang: 'שפת הקול', readDirs: 'הקראת הוראות במה',
+    hideMine: 'טשטוש השורות שלי (הקישו על שורה כדי להציץ)', changeChar: 'החלפת דמות', retryMic: 'חיבור המיקרופון מחדש',
+    sensLevels: ['', 'נמוכה', 'בינונית-נמוכה', 'בינונית', 'גבוהה', 'גבוהה מאוד'], strictLevels: ['', 'מקלה', 'רגילה', 'קפדנית'],
+    seconds: v => v.toFixed(1) + ' שניות', matchScript: 'לפי שפת המחזה',
+    heard: (said, pct) => `שמעתי: "${said}" · התאמה של ${pct}%`,
+    ready: 'מוכן', pressPlay: 'לחצו על "הפעלה" כדי להתחיל.', listening: 'מקשיב', hearing: 'שומע אתכם…',
+    yourLine: 'התור שלכם', sayThenDone: 'אמרו את השורה, ואז הקישו "סיימתי" (או מקש רווח).', tapDone: 'התור שלכם. הקישו "סיימתי" כשתסיימו.',
+    goAhead: 'קדימה. אמשיך כשתפסיקו לדבר.', directions: 'הוראות במה', lineIs: 'השורה היא',
+    curtain: 'מסך', endText: 'סוף המחזה. לחצו על "הפעלה" כדי לעבור עליו שוב, או הקישו על שורה כלשהי כדי להתחיל ממנה.',
+    paused: 'מושהה', tapLine: 'הקישו על שורה כלשהי כדי להתחיל ממנה.', starting: 'מתחיל', askingMic: 'מבקש גישה למיקרופון…',
+    noMic: 'אין מיקרופון', noMicText: 'המיקרופון לא זמין. הקישו "סיימתי" אחרי כל שורה שלכם.', startHere: 'לחצו על "הפעלה" כדי להתחיל מכאן.',
+    micOn: 'המיקרופון פעיל', micConnected: 'המיקרופון מחובר.', micStill: 'עדיין אין גישה למיקרופון. בדקו את הרשאות האתר בדפדפן.',
+    continueText: 'לחצו על "הפעלה" כדי להמשיך מאיפה שהפסקתם.'
+  }
+};
 const saved = load();
-const settings = Object.assign({ rate: 1, silence: 1.5, sens: 3, readDirs: false, hideMine: false, voiceLang: 'auto', checkLines: false, readMistakes: false, strict: 2 }, saved?.settings || {});
+const settings = Object.assign({ rate: 1, silence: 1.5, sens: 3, readDirs: false, hideMine: false, voiceLang: 'auto', checkLines: false, readMistakes: false, strict: 2, uiLang: /^(he|iw)/i.test(navigator.language || '') ? 'he' : 'en' }, saved?.settings || {});
 const S = { title: '', items: [], chars: [], lang: 'en', mine: new Set(), idx: 0 };
+const t = (k, ...a) => { const v = (STR[settings.uiLang] || STR.en)[k]; return typeof v === 'function' ? v(...a) : v; };
+const K = (k, ...a) => ({ k, a });  // a translatable status message, re-rendered when the language changes
+let castMetaMsg = null, loadErrKey = null;
 
 /* ---------- reading the .docx ---------- */
 const kids = (el, name) => [...el.children].filter(c => c.localName === name);
@@ -347,7 +420,7 @@ function show(view) {
 function useScript(parsed, title) {
   S.items = parsed.items; S.chars = parsed.chars; S.lang = parsed.lang; S.title = title; S.mine = new Set(); S.idx = 0;
   const lines = S.items.filter(i => i.type === 'line').length;
-  $('castMeta').textContent = `${lines} speeches and ${S.chars.length} characters found. Pick one, or several if you double up.`;
+  castMetaMsg = K('castMeta', lines, S.chars.length); $('castMeta').textContent = t('castMeta', lines, S.chars.length);
   renderChips(); persist(); show('castView');
 }
 function renderChips() {
@@ -356,7 +429,7 @@ function renderChips() {
     const b = document.createElement('button');
     b.className = 'chip'; b.setAttribute('aria-pressed', S.mine.has(c.key)); b.dir = 'auto';
     const nm = document.createElement('span'); nm.textContent = c.name;
-    const ct = document.createElement('small'); ct.textContent = c.count + (c.count === 1 ? ' line' : ' lines');
+    const ct = document.createElement('small'); ct.dataset.n = c.count; ct.textContent = t('lines', c.count);
     b.append(nm, ct);
     b.onclick = () => { S.mine.has(c.key) ? S.mine.delete(c.key) : S.mine.add(c.key); b.setAttribute('aria-pressed', S.mine.has(c.key)); $('startBtn').disabled = !S.mine.size; };
     box.append(b);
@@ -364,7 +437,7 @@ function renderChips() {
   $('startBtn').disabled = !S.mine.size;
 }
 async function handleFile(file) {
-  $('loadErr').hidden = true;
+  $('loadErr').hidden = true; loadErrKey = null;
   try {
     let paras;
     if (/\.txt$/i.test(file.name)) paras = (await file.text()).split(/\r?\n/).map(t => ({ text: t, italic: false }));
@@ -373,10 +446,8 @@ async function handleFile(file) {
     if (!parsed) throw new Error('nolines');
     useScript(parsed, file.name.replace(/\.(docx|txt)$/i, ''));
   } catch (e) {
-    $('loadErr').textContent = e.message === 'nolines'
-      ? "Couldn't find any character speeches in that file. Check the layouts below: each speech needs the character's name before it."
-      : /\.doc$/i.test(file.name) ? 'That is an older .doc file. Open it in Word, choose Save As › Word Document (.docx), and upload that.'
-      : "Couldn't read that file. Make sure it's a Word .docx document.";
+    loadErrKey = e.message === 'nolines' ? 'errNoLines' : /\.doc$/i.test(file.name) ? 'errDoc' : 'errRead';
+    $('loadErr').textContent = t(loadErrKey);
     $('loadErr').hidden = false;
   }
 }
@@ -433,7 +504,7 @@ function fillLangs() {
   const langs = [...new Set(speechSynthesis.getVoices().map(v => v.lang.slice(0, 2).toLowerCase().replace('iw', 'he')))].sort();
   const sel = $('langSel'); sel.innerHTML = '';
   const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); };
-  add('auto', 'Match the script');
+  add('auto', t('matchScript'));
   langs.forEach(l => add(l, l));
   sel.value = langs.includes(settings.voiceLang) ? settings.voiceLang : 'auto';
 }
@@ -536,7 +607,8 @@ function showHeard(k, said, score, bad) {
   let h = li.querySelector('.said');
   if (!h) { h = document.createElement('p'); h.className = 'said'; h.dir = 'auto'; li.append(h); }
   h.classList.toggle('bad', bad);
-  h.textContent = `Heard: \u201c${said}\u201d \u00b7 ${Math.round(score * 100)}% match`;
+  h.dataset.said = said; h.dataset.pct = Math.round(score * 100);
+  h.textContent = t('heard', said, h.dataset.pct);
 }
 
 /* ---------- microphone: notice when you start and stop talking ---------- */
@@ -570,10 +642,10 @@ function listen(my) {
     };
     stepAbort = finish;
     let heard = false, lastAct = Date.now();
-    const onHeard = () => { if (!heard) { heard = true; status('heard', 'Listening', 'Hearing you…'); } };
+    const onHeard = () => { if (!heard) { heard = true; status('heard', K('listening'), K('hearing')); } };
     if (settings.checkLines && SR) rs = startRec(text => { lastAct = Date.now(); if (text) { onHeard(); $('statusText').textContent = text; } });
-    if (!mic && (!rs || rs.failed)) { status('you', 'Your line', micTried ? 'Say your line, then tap Done (or press Space).' : 'Your line. Tap Done when finished.'); return; }
-    status('you', 'Your line', 'Go ahead. I move on when you stop talking.');
+    if (!mic && (!rs || rs.failed)) { status('you', K('yourLine'), K(micTried ? 'sayThenDone' : 'tapDone')); return; }
+    status('you', K('yourLine'), K('goAhead'));
     $('meter').hidden = !mic;
     let voiceMs = 0; const t0 = Date.now();
     iv = setInterval(() => {
@@ -592,12 +664,15 @@ function listen(my) {
 
 /* ---------- playback ---------- */
 let token = 0, running = false, wake = null;
+let lastStatus = ['', K('ready'), K('pressPlay')];
+const say = v => v && v.k ? t(v.k, ...v.a) : (v || '');
 function status(kind, label, text) {
-  const p = $('pill'); p.className = 'pill ' + kind; p.textContent = label; $('statusText').textContent = text || '';
+  lastStatus = [kind, label, text];
+  const p = $('pill'); p.className = 'pill ' + kind; p.textContent = say(label); $('statusText').textContent = say(text);
   const yours = kind === 'you' || kind === 'heard';
-  $('nextBtn').textContent = yours ? 'Done ✓' : 'Skip ▶';
+  $('nextBtn').textContent = t(yours ? 'done' : 'skip');
 }
-function syncPlay() { $('playBtn').textContent = running ? '❚❚ Pause' : '▶ Play'; }
+function syncPlay() { $('playBtn').textContent = t(running ? 'pause' : 'play'); }
 async function runFrom(i) {
   const my = ++token; running = true; syncPlay();
   for (let k = i; k < S.items.length; k++) {
@@ -605,7 +680,7 @@ async function runFrom(i) {
     S.idx = k; highlight(k); persist();
     const it = S.items[k];
     if (it.type === 'dir') {
-      if (settings.readDirs) { status('reading', 'Directions', it.text); await speak(it.text, 0, my); }
+      if (settings.readDirs) { status('reading', K('directions'), it.text); await speak(it.text, 0, my); }
       continue;
     }
     if (S.mine.has(it.key)) {
@@ -619,7 +694,7 @@ async function runFrom(i) {
         const score = lineScore(expected, said), bad = score < STRICT[settings.strict];
         showHeard(k, said, score, bad);
         if (bad && settings.readMistakes) {
-          status('prompt', 'The line is', expected.length > 90 ? expected.slice(0, 90) + '…' : expected);
+          status('prompt', K('lineIs'), expected.length > 90 ? expected.slice(0, 90) + '…' : expected);
           await speak(expected, 0, my);
           stepAbort = null;
           if (my !== token) return;
@@ -636,23 +711,23 @@ async function runFrom(i) {
   }
   if (my !== token) return;
   running = false; S.idx = 0; persist(); syncPlay();
-  status('', 'Curtain', 'End of script. Press Play to run it again, or tap any line to start there.');
+  status('', K('curtain'), K('endText'));
   releaseWake();
 }
 function stop() {
   token++; running = false;
   const a = stepAbort; stepAbort = null; a?.();
   speechSynthesis.cancel(); $('meter').hidden = true; syncPlay();
-  status('', 'Paused', 'Tap any line to start from there.'); releaseWake();
+  status('', K('paused'), K('tapLine')); releaseWake();
 }
 async function play() {
   // these must happen inside the tap so phones allow sound
   speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(' '));
   actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.();
   if (settings.checkLines) primeRec();
-  running = true; syncPlay(); status('', 'Starting', mic ? '' : 'Asking for the microphone…');
+  running = true; syncPlay(); status('', K('starting'), mic ? '' : K('askingMic'));
   await initMic();
-  if (!mic) status('', 'No mic', 'Microphone unavailable. Tap Done after each of your lines.');
+  if (!mic) status('', K('noMic'), K('noMicText'));
   try { wake = await navigator.wakeLock?.request('screen'); } catch {}
   runFrom(S.idx);
 }
@@ -662,7 +737,7 @@ function go(i) {
   i = Math.max(0, Math.min(S.items.length - 1, i));
   const was = running; if (was) { token++; const a = stepAbort; stepAbort = null; a?.(); speechSynthesis.cancel(); }
   S.idx = i; highlight(i); persist();
-  if (was) runFrom(i); else status('', 'Ready', 'Press Play to start from here.');
+  if (was) runFrom(i); else status('', K('ready'), K('startHere'));
 }
 $('playBtn').onclick = () => running ? stop() : play();
 $('prevBtn').onclick = () => go(S.idx - 1);
@@ -674,14 +749,16 @@ document.addEventListener('keydown', e => {
 });
 
 /* ---------- settings ---------- */
+const rangeRefresh = [];
 function bindRange(id, outId, key, fmt) {
   const el = $(id), out = $(outId); el.value = settings[key]; out.textContent = fmt(settings[key]);
+  rangeRefresh.push(() => { out.textContent = fmt(settings[key]); });
   el.oninput = () => { settings[key] = +el.value; out.textContent = fmt(settings[key]); persist(); };
 }
 bindRange('rate', 'rateOut', 'rate', v => v.toFixed(1) + '×');
-bindRange('sil', 'silOut', 'silence', v => v.toFixed(1) + ' s');
-bindRange('sens', 'sensOut', 'sens', v => ['', 'low', 'medium-low', 'medium', 'high', 'very high'][v]);
-bindRange('strict', 'strictOut', 'strict', v => ['', 'lenient', 'normal', 'strict'][v]);
+bindRange('sil', 'silOut', 'silence', v => t('seconds', v));
+bindRange('sens', 'sensOut', 'sens', v => t('sensLevels')[v]);
+bindRange('strict', 'strictOut', 'strict', v => t('strictLevels')[v]);
 let primed = false;
 function primeRec() {
   // ask for recognition permission while we still have the tap
@@ -695,7 +772,7 @@ function syncToggles() {
   const on = settings.checkLines && !!SR;
   $('readMistakes').disabled = !on; $('readMistakes').checked = on && settings.readMistakes;
   $('readMistakesWrap').classList.toggle('off', !on);
-  if (!SR) { $('srNote').hidden = false; $('srNote').textContent = 'Line checking needs Chrome, Edge or Safari.'; }
+  if (!SR) { $('srNote').hidden = false; $('srNote').textContent = t('srNote'); }
 }
 $('checkLines').onchange = e => { settings.checkLines = e.target.checked; if (settings.checkLines) primeRec(); syncToggles(); persist(); };
 $('readMistakes').onchange = e => { settings.readMistakes = e.target.checked; persist(); };
@@ -703,8 +780,23 @@ syncToggles();
 $('readDirs').checked = settings.readDirs; $('readDirs').onchange = e => { settings.readDirs = e.target.checked; persist(); };
 $('hideMine').checked = settings.hideMine; $('hideMine').onchange = e => { settings.hideMine = e.target.checked; document.body.classList.toggle('hide-mine', settings.hideMine); persist(); };
 $('langSel').onchange = e => { settings.voiceLang = e.target.value; persist(); };
-$('micBtn').onclick = async () => { micTried = false; actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.(); await initMic(); status('', mic ? 'Mic on' : 'No mic', mic ? 'Microphone connected.' : 'Still no microphone access. Check the browser’s site permissions.'); };
+$('micBtn').onclick = async () => { micTried = false; actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.(); await initMic(); status('', K(mic ? 'micOn' : 'noMic'), K(mic ? 'micConnected' : 'micStill')); };
 fillLangs();
+
+/* ---------- interface language (the play keeps its own) ---------- */
+function applyUiLang() {
+  const he = settings.uiLang === 'he';
+  document.documentElement.lang = settings.uiLang; document.documentElement.dir = he ? 'rtl' : 'ltr';
+  for (const el of document.querySelectorAll('[data-t]')) el.textContent = t(el.dataset.t);
+  $('uiLangBtn').textContent = t('other'); $('uiLangBtn').lang = he ? 'en' : 'he';
+  $('prevBtn').textContent = t('back');
+  syncPlay(); status(...lastStatus); rangeRefresh.forEach(f => f()); fillLangs(); syncToggles();
+  if (castMetaMsg) $('castMeta').textContent = say(castMetaMsg);
+  if (loadErrKey) $('loadErr').textContent = t(loadErrKey);
+  for (const c of document.querySelectorAll('.chip small')) c.textContent = t('lines', +c.dataset.n);
+  for (const h of document.querySelectorAll('.said')) h.textContent = t('heard', h.dataset.said, h.dataset.pct);
+}
+$('uiLangBtn').onclick = () => { settings.uiLang = settings.uiLang === 'he' ? 'en' : 'he'; persist(); applyUiLang(); };
 
 const SAMPLE = [
   'THE UNDERSTUDY', 'Scene 1', '(An empty rehearsal hall. MARGARET sits alone with a script. TOM rushes in.)',
@@ -726,9 +818,10 @@ const SAMPLE = [
 if (saved?.items?.length) {
   S.items = saved.items; S.chars = saved.chars || []; S.lang = saved.lang || 'en'; S.title = saved.title || '';
   S.mine = new Set(saved.mine || []); S.idx = saved.idx || 0;
-  if (S.mine.size) { renderScript(); show('stageView'); status('', 'Ready', 'Press Play to continue where you left off.'); }
-  else { renderChips(); $('castMeta').textContent = `${S.chars.length} characters found.`; show('castView'); }
+  if (S.mine.size) { renderScript(); show('stageView'); status('', K('ready'), K('continueText')); }
+  else { renderChips(); castMetaMsg = K('castMetaShort', S.chars.length); $('castMeta').textContent = say(castMetaMsg); show('castView'); }
 } else show('loadView');
+applyUiLang();
 })();
 </script>
 <!-- app:end -->
