@@ -145,6 +145,10 @@ details.settings summary:hover { color: var(--gold) }
 .set-grid input[type=range] { width: 100%; accent-color: var(--gold) }
 .set-grid select { background: var(--charcoal); border: 1px solid var(--warm-gray); border-radius: 2px; padding: 8px }
 .set-btns { display: flex; gap: 8px; flex-wrap: wrap }
+.voices { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: var(--ink-2) }
+.voice-list { display: flex; flex-wrap: wrap; gap: 8px }
+.voice-btn { display: inline-flex; gap: 10px; align-items: baseline; text-transform: none; letter-spacing: normal; font-family: var(--ui); font-size: 15px; min-height: 40px; padding: .4em .9em }
+.voice-btn small { color: var(--gold-2); font-family: var(--label); letter-spacing: .06em; font-size: 12px }
 .set-btns button { font-size: 13px }
 .toggles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .switch { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border: 1px solid var(--warm-gray); border-radius: 2px; cursor: pointer; font-size: 14px; color: var(--ink-2); min-height: 40px; user-select: none }
@@ -160,6 +164,9 @@ details.settings summary:hover { color: var(--gold) }
 .toggles .note { font-size: 13px }
 .said { margin: 6px auto 0; max-width: 34em; font-size: 13px; color: var(--ink-2); font-family: var(--ui) }
 .said.bad { color: var(--red-ink) }
+.result { margin: 0; font-size: 14px; color: var(--ink); padding: 6px 10px; border-inline-start: 2px solid var(--gold-2); background: var(--goldwash); overflow-wrap: anywhere }
+.result.bad { border-inline-start-color: var(--red); color: var(--red-ink); background: rgba(139, 41, 37, .14) }
+.result.none { color: var(--ink-2); border-inline-start-color: var(--warm-gray); background: transparent }
 .pill.prompt { background: var(--red); color: var(--ink) }
 
 /* leave confirmation */
@@ -228,6 +235,7 @@ You're late again.</pre>
 <div class="bar" id="bar" hidden>
   <div class="bar-in">
     <div class="status"><span class="pill" id="pill">Ready</span><span id="statusText" dir="auto">Press Play to begin.</span></div>
+    <p class="result" id="lastHeard" dir="auto" hidden></p>
     <div class="meter" id="meter" hidden><i id="meterFill"></i><b id="meterThr"></b></div>
     <div class="toggles">
       <label class="switch" id="readMistakesWrap"><input type="checkbox" id="readMistakes"><span data-t="readMistakes">Read mistakes aloud</span></label>
@@ -249,6 +257,11 @@ You're late again.</pre>
         <label><span data-t="voiceLang">Voice language</span> <select id="langSel"></select></label>
         <label class="check"><input type="checkbox" id="readDirs"> <span data-t="readDirs">Read stage directions aloud</span></label>
         <label class="check"><input type="checkbox" id="hideMine"> <span data-t="hideMine">Blur my lines (tap one to peek)</span></label>
+        <div class="voices">
+          <span data-t="charVoices">Character voices</span>
+          <div class="voice-list" id="voiceList"></div>
+          <p class="note" id="voiceNote"></p>
+        </div>
         <div class="set-btns">
           <button id="castBtn" class="ghost" data-t="changeChar">Change character</button>
           <button id="micBtn" class="ghost" data-t="retryMic">Retry microphone</button>
@@ -276,7 +289,7 @@ const $ = id => document.getElementById(id);
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const KEY = 'playmate-v1';
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null') } catch { return null } };
-const persist = () => { try { localStorage.setItem(KEY, JSON.stringify({ title: S.title, items: S.items, chars: S.chars, lang: S.lang, mine: [...S.mine], idx: S.idx, settings })) } catch {} };
+const persist = () => { try { localStorage.setItem(KEY, JSON.stringify({ title: S.title, items: S.items, chars: S.chars, lang: S.lang, mine: [...S.mine], idx: S.idx, voiceMap: S.voiceMap, settings })) } catch {} };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const STR = {
@@ -295,6 +308,10 @@ const STR = {
     errNoLines: "Couldn't find any character speeches in that file. Check the layouts below: each speech needs the character's name before it.",
     errDoc: 'That is an older .doc file. Open it in Word, choose Save As › Word Document (.docx), and upload that.',
     errRead: "Couldn't read that file. Make sure it's a Word .docx document.",
+    srNothing: 'Speech recognition caught no words on that line.', srBlocked: 'Speech recognition is blocked here, so lines are not being checked.',
+    srMissing: "This browser has no speech recognition, so lines aren't being checked.",
+    charVoices: 'Character voices', voiceN: n => `voice ${n}`,
+    voicesNote: n => `Tap a character to hear their next voice. ${n === 0 ? "This device has no voice for the play's language, so the browser picks one, and pitch and pace tell the characters apart." : `This device has ${n === 1 ? 'one voice' : n + ' voices'} for the play's language, so pitch and pace keep the rest apart.`} Edge on a computer and Android phones usually have the most.`,
     jumpMine: 'Jump to my next line', leaveQ: 'Are you sure you want to leave?', yes: 'Yes', no: 'No',
     readMistakes: 'Read mistakes aloud', srNote: 'Line checking needs Chrome, Edge or Safari.',
     back: '◀ Back', skip: 'Skip ▶', done: 'Done ✓', play: '▶ Play', pause: '❚❚ Pause',
@@ -328,6 +345,10 @@ const STR = {
     errNoLines: 'לא נמצאו בקובץ קטעי דיבור של דמויות. בדקו את המבנים שמופיעים למטה: לפני כל קטע צריך להופיע שם הדמות.',
     errDoc: 'זה קובץ Word ישן (doc). פתחו אותו ב-Word, בחרו "שמירה בשם" ואז "מסמך Word (docx)", והעלו את הקובץ החדש.',
     errRead: 'לא הצלחנו לקרוא את הקובץ. ודאו שזה מסמך Word מסוג docx.',
+    srNothing: 'זיהוי הדיבור לא קלט מילים בשורה הזאת.', srBlocked: 'זיהוי הדיבור חסום כאן, ולכן השורות לא נבדקות.',
+    srMissing: 'בדפדפן הזה אין זיהוי דיבור, ולכן השורות לא נבדקות.',
+    charVoices: 'הקולות של הדמויות', voiceN: n => `קול ${n}`,
+    voicesNote: n => `הקישו על דמות כדי לשמוע את הקול הבא שלה. ${n === 0 ? 'אין במכשיר הזה קול בשפת המחזה, אז הדפדפן בוחר קול, והדמויות מובחנות בגובה הקול ובקצב.' : `במכשיר הזה יש ${n === 1 ? 'קול אחד' : n + ' קולות'} בשפת המחזה, ולכן הדמויות מובחנות גם בגובה הקול ובקצב.`} בדרך כלל יש הכי הרבה קולות בדפדפן Edge במחשב ובטלפוני אנדרואיד.`,
     jumpMine: 'קפיצה לשורה הבאה שלי', leaveQ: 'בטוח שאתם רוצים לצאת?', yes: 'כן', no: 'לא',
     readMistakes: 'הקראה בקול כשיש טעות', srNote: 'בדיקת שורות עובדת רק ב-Chrome, ב-Edge או ב-Safari.',
     back: '▶ הקודם', skip: 'דלג ◀', done: 'סיימתי ✓', play: '▶ הפעלה', pause: '❚❚ השהיה',
@@ -348,11 +369,12 @@ const STR = {
   }
 };
 const saved = load();
-const settings = Object.assign({ rate: 1, silence: 1.5, sens: 3, readDirs: false, hideMine: false, voiceLang: 'auto', readMistakes: false, strict: 2, uiLang: 'he' }, saved?.settings || {});
+const settings = Object.assign({ rate: 1, silence: 1.5, sens: 3, readDirs: false, hideMine: false, voiceLang: 'auto', readMistakes: false, strict: 3, uiLang: 'he' }, saved?.settings || {});
 // 3. Hebrew is the default interface; earlier saved choices are reset to it once
 if (!settings.uiLangV2) { settings.uiLang = 'he'; settings.uiLangV2 = true; }
 delete settings.checkLines;
-const S = { title: '', items: [], chars: [], lang: 'en', mine: new Set(), idx: 0 };
+if (!settings.strictV2) { settings.strict = 3; settings.strictV2 = true; }
+const S = { title: '', items: [], chars: [], lang: 'en', mine: new Set(), idx: 0, voiceMap: {} };
 const t = (k, ...a) => { const v = (STR[settings.uiLang] || STR.en)[k]; return typeof v === 'function' ? v(...a) : v; };
 const K = (k, ...a) => ({ k, a });  // a translatable status message, re-rendered when the language changes
 let castMetaMsg = null, loadErrKey = null;
@@ -489,7 +511,8 @@ function show(view) {
   $('docTitle').textContent = view === 'loadView' ? '' : S.title;
 }
 function useScript(parsed, title) {
-  S.items = parsed.items; S.chars = parsed.chars; S.lang = parsed.lang; S.title = title; S.mine = new Set(); S.idx = 0;
+  S.items = parsed.items; S.chars = parsed.chars; S.lang = parsed.lang; S.title = title; S.mine = new Set(); S.idx = 0; S.voiceMap = {};
+  showResult(null);
   const lines = S.items.filter(i => i.type === 'line').length;
   castMetaMsg = K('castMeta', lines, castList().length); $('castMeta').textContent = say(castMetaMsg);
   renderChips(); persist(); show('castView');
@@ -551,6 +574,7 @@ function renderScript() {
     ol.append(li); lis.push(li);
   });
   highlight(S.idx, false);
+  renderVoices();
 }
 let curLi = null;
 function highlight(i, scroll = true) {
@@ -560,7 +584,6 @@ function highlight(i, scroll = true) {
 }
 
 /* ---------- voices ---------- */
-const PITCH = [1, 0.8, 1.2, 0.92, 1.3, 0.7, 1.1];
 const FULL = { he: 'he-IL', en: 'en-US', ar: 'ar-SA', ru: 'ru-RU' };
 const langNow = () => settings.voiceLang === 'auto' ? S.lang : settings.voiceLang;
 function voicesFor(lang) {
@@ -578,11 +601,42 @@ function fillLangs() {
   langs.forEach(l => add(l, l));
   sel.value = langs.includes(settings.voiceLang) ? settings.voiceLang : 'auto';
 }
-speechSynthesis.onvoiceschanged = fillLangs;
-function voiceSlot(key) {
-  if (key == null) return 0;
-  const others = S.chars.filter(c => !S.mine.has(c.key));
-  return Math.max(0, others.findIndex(c => c.key === key)) + 1;
+speechSynthesis.onvoiceschanged = () => { fillLangs(); renderVoices(); };
+// Every character gets its own mix of device voice, pitch and pace. Real voices are used
+// up first; after that the same voices come back at a different pitch, then a different pace.
+const PITCHES = [1, 0.78, 1.28, 0.9, 1.15, 0.66, 1.42];
+const PACES = [1, 0.9, 1.1];
+function combos() {
+  const n = Math.max(voicesFor(langNow()).length, 1), out = [];
+  for (const r of PACES) for (const p of PITCHES) for (let v = 0; v < n; v++) out.push({ v, p, r });
+  return out;
+}
+const others = () => S.chars.filter(c => !S.mine.has(c.key));
+function voiceIndex(key) {
+  if (key == null) return 0;  // 0 is the narrator: stage directions and corrections
+  if (S.voiceMap[key] != null) return S.voiceMap[key];
+  return Math.max(0, others().findIndex(c => c.key === key)) + 1;
+}
+function renderVoices() {
+  const box = $('voiceList'); if (!box) return; box.innerHTML = '';
+  const n = voicesFor(langNow()).length;
+  $('voiceNote').textContent = t('voicesNote', n);
+  for (const c of others().filter(c => c.count > 1)) {
+    const b = document.createElement('button'); b.className = 'ghost voice-btn';
+    const nm = document.createElement('span'); nm.textContent = c.name; nm.dir = 'auto';
+    const lb = document.createElement('small'); lb.textContent = t('voiceN', voiceIndex(c.key));
+    b.append(nm, lb);
+    b.onclick = () => {
+      if (running) stop();
+      const total = combos().length, used = new Set(others().filter(o => o.key !== c.key).map(o => voiceIndex(o.key)));
+      let next = voiceIndex(c.key);
+      for (let i = 0; i < total; i++) { next = next + 1 >= total ? 1 : next + 1; if (!used.has(next)) break; }
+      S.voiceMap[c.key] = next; persist(); lb.textContent = t('voiceN', next);
+      const sample = stripDirs(S.items.find(it => it.type === 'line' && it.key === c.key)?.text || c.name);
+      speechSynthesis.cancel(); speak(sample.length > 120 ? sample.slice(0, 120) + '…' : sample, next, token);
+    };
+    box.append(b);
+  }
 }
 function chunks(text) {
   const parts = text.replace(/\n/g, ' ').split(/(?<=[.!?…؟])\s+/);
@@ -599,9 +653,9 @@ let stepAbort = null, keepUtt = null;
 function sayChunk(text, slot) {
   return new Promise(res => {
     const u = new SpeechSynthesisUtterance(text); keepUtt = u;
-    const vs = voicesFor(langNow());
-    if (vs.length) { u.voice = vs[slot % vs.length]; u.lang = u.voice.lang; } else u.lang = FULL[langNow()] || langNow();
-    u.rate = settings.rate; u.pitch = PITCH[slot % PITCH.length];
+    const vs = voicesFor(langNow()), all = combos(), cb = all[slot % all.length];
+    if (vs.length) { u.voice = vs[cb.v]; u.lang = u.voice.lang; } else u.lang = FULL[langNow()] || langNow();
+    u.rate = settings.rate * cb.r; u.pitch = cb.p;
     let done = false, seen = false; const t0 = Date.now();
     const fin = () => { if (done) return; done = true; clearInterval(poll); res(); };
     const poll = setInterval(() => { if (speechSynthesis.speaking) seen = true; else if (seen || Date.now() - t0 > 4000) fin(); }, 250);
@@ -671,6 +725,13 @@ function lineScore(expected, said) {
     m[i][j] = sameWord(e[i - 1], s[j - 1]) ? m[i - 1][j - 1] + 1 : Math.max(m[i - 1][j], m[i][j - 1]);
   return 2 * m[e.length][s.length] / (e.length + s.length);
 }
+let lastResult = null;
+function showResult(r) {
+  lastResult = r; const el = $('lastHeard');
+  if (!r) { el.hidden = true; return; }
+  el.hidden = false; el.className = 'result' + (r.why ? ' none' : r.bad ? ' bad' : '');
+  el.textContent = r.why ? t(r.why) : t('heard', r.said, r.pct);
+}
 function flashMiss() { const m = $('miss'); m.classList.remove('show'); void m.offsetWidth; m.classList.add('show'); }
 function showHeard(k, said, score, bad) {
   const li = lis[k]; if (!li) return;
@@ -708,7 +769,7 @@ function listen(my) {
       if (finished) return; finished = true; clearInterval(iv); $('meter').hidden = true;
       rs?.stop();
       const said = rs ? rs.text() : '';
-      res({ said, judged: !!(rs && said) });
+      res({ said, judged: !!(rs && said), why: !SR ? 'srMissing' : rs.failed ? 'srBlocked' : 'srNothing' });
     };
     stepAbort = finish;
     let heard = false, lastAct = Date.now();
@@ -756,25 +817,25 @@ async function runFrom(i) {
     if (S.mine.has(it.key)) {
       const expected = stripDirs(it.text);
       if (!expected) continue;
-      const { said, judged } = await listen(my);
+      const { said, judged, why } = await listen(my);
       if (my !== token) return;
       lis[k]?.classList.add('revealed');
       stepAbort = null;
       if (judged) {
         const score = lineScore(expected, said), bad = score < STRICT[settings.strict];
-        showHeard(k, said, score, bad);
+        showHeard(k, said, score, bad); showResult({ said, pct: Math.round(score * 100), bad });
         if (bad && settings.readMistakes) {
           status('prompt', K('lineIs'), expected.length > 90 ? expected.slice(0, 90) + '…' : expected);
           await speak(expected, 0, my);
           stepAbort = null;
           if (my !== token) return;
         } else if (bad) flashMiss();
-      }
+      } else showResult({ why });
       await sleep(120);
     } else {
       const t = spoken(it.text);
       status('reading', it.who, t.length > 90 ? t.slice(0, 90) + '…' : t);
-      if (t) await speak(t, voiceSlot(it.key), my);
+      if (t) await speak(t, voiceIndex(it.key), my);
       stepAbort = null;
       await sleep(150);
     }
@@ -854,7 +915,7 @@ $('readMistakes').onchange = e => { settings.readMistakes = e.target.checked; pe
 syncToggles();
 $('readDirs').checked = settings.readDirs; $('readDirs').onchange = e => { settings.readDirs = e.target.checked; persist(); };
 $('hideMine').checked = settings.hideMine; $('hideMine').onchange = e => { settings.hideMine = e.target.checked; document.body.classList.toggle('hide-mine', settings.hideMine); persist(); };
-$('langSel').onchange = e => { settings.voiceLang = e.target.value; persist(); };
+$('langSel').onchange = e => { settings.voiceLang = e.target.value; persist(); renderVoices(); };
 $('micBtn').onclick = async () => { micTried = false; actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume?.(); await initMic(); status('', K(mic ? 'micOn' : 'noMic'), K(mic ? 'micConnected' : 'micStill')); };
 fillLangs();
 
@@ -868,6 +929,7 @@ function applyUiLang() {
   syncPlay(); status(...lastStatus); rangeRefresh.forEach(f => f()); fillLangs(); syncToggles();
   if (castMetaMsg) $('castMeta').textContent = say(castMetaMsg);
   if (loadErrKey) $('loadErr').textContent = t(loadErrKey);
+  showResult(lastResult); renderVoices();
   for (const h of document.querySelectorAll('.said')) h.textContent = t('heard', h.dataset.said, h.dataset.pct);
 }
 $('uiLangBtn').onclick = () => { settings.uiLang = settings.uiLang === 'he' ? 'en' : 'he'; persist(); applyUiLang(); };
@@ -891,7 +953,7 @@ const SAMPLE = [
 /* ---------- reopen where you left off ---------- */
 if (saved?.items?.length) {
   S.items = saved.items; S.chars = saved.chars || []; S.lang = saved.lang || 'en'; S.title = saved.title || '';
-  S.mine = new Set(saved.mine || []); S.idx = saved.idx || 0;
+  S.mine = new Set(saved.mine || []); S.idx = saved.idx || 0; S.voiceMap = saved.voiceMap || {};
   if (S.mine.size) { renderScript(); show('stageView'); status('', K('ready'), K('continueText')); }
   else { renderChips(); castMetaMsg = K('castMetaShort', castList().length); $('castMeta').textContent = say(castMetaMsg); show('castView'); }
 } else show('loadView');
