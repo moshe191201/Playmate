@@ -100,6 +100,7 @@ The script is one IIFE. Sections are marked with `/* ---------- name ---------- 
 | settings | range bindings, Read mistakes aloud switch, recogniser permission priming |
 | interface language | `applyUiLang()` re-renders every translatable string and flips `dir` |
 | reopen where you left off | restores from localStorage |
+| birthday card | Dad's 57th (9 Oct 2026): Hebrew card + canvas confetti on open that day, then until closed once through 16 Oct; gone after. Safe to delete afterwards |
 | back button | history-entry guard, leave dialog, settings panel open/close |
 
 ### Playback model (read before touching `runFrom`)

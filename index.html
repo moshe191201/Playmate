@@ -191,6 +191,18 @@ details.fmt pre { font-family: var(--script); background: var(--charcoal); borde
 @media (prefers-reduced-motion: reduce) { #miss.show svg { animation: missFlat .9s steps(1, end) } }
 @keyframes missFlat { 0% { opacity: .95 } 100% { opacity: 0 } }
 
+/* birthday card (October 2026): a gold-framed card over the app, confetti on open */
+.bday { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(7, 6, 6, .8); backdrop-filter: blur(3px) }
+.bday-box { position: relative; width: min(100%, 26rem); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--charcoal); border: 1px solid var(--gold);
+  border-radius: 2px; padding: 34px 22px 24px; text-align: center; box-shadow: inset 0 0 0 7px var(--charcoal), inset 0 0 0 8px rgba(163, 123, 69, .45), var(--shadow-deep) }
+.bday-x { position: absolute; top: 10px; inset-inline-end: 10px; min-height: 44px; min-width: 44px; padding: 0; font-size: 20px; line-height: 1 }
+.bday-age { margin: 0; font-family: var(--display); font-size: 64px; line-height: 1; color: var(--gold); text-shadow: 0 2px 0 rgba(0, 0, 0, .55) }
+.bday-title { margin: 8px 0 0; font-family: "Secular One", var(--display); font-size: clamp(30px, 8vw, 40px); line-height: 1.15; color: var(--gold) }
+.bday-title::after { content: ''; display: block; width: 88px; height: 1px; margin: 16px auto 0; background: var(--metal) }
+.bday-box p.msg { margin: 14px 0 0; color: var(--ink); font-size: 17px; line-height: 1.6; text-wrap: pretty }
+.bday-box p.sign { margin: 18px 0 0; color: var(--gold-2); font-family: var(--label); font-size: 16px }
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 95; pointer-events: none }
+
 /* Hebrew has no capitals and suffers from wide tracking */
 :root[lang=he] .eyebrow, :root[lang=he] button, :root[lang=he] .pill, :root[lang=he] summary, :root[lang=he] .drop strong { letter-spacing: .02em }
 :root[lang=he] h1 { line-height: 1.1 }
@@ -301,6 +313,19 @@ You're late again.</pre>
 </div>
 
 <div id="miss" aria-hidden="true"><svg viewBox="0 0 100 100"><filter id="worn"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="3.5"/></filter><g filter="url(#worn)" stroke="var(--red)" fill="none"><rect x="6" y="6" width="88" height="88" stroke-width="4"/><path d="M24 24 L76 76 M76 24 L24 76" stroke-width="13"/></g></svg></div>
+
+<div class="bday" id="bday" role="dialog" aria-modal="true" aria-labelledby="bdayTitle" lang="he" dir="rtl" hidden>
+  <div class="bday-box">
+    <button id="bdayClose" class="ghost bday-x" aria-label="סגירה">✕</button>
+    <p class="bday-age" aria-hidden="true">57</p>
+    <p class="bday-title" id="bdayTitle">מזל טוב אבא!!</p>
+    <p class="msg">יום הולדת 57 שמח! 🎂</p>
+    <p class="msg">תודה על כל מה שאתה תמיד עושה בשבילנו: מתקן כל דבר שמתקלקל, דואג לכולם, ותמיד נמצא שם כשצריך.</p>
+    <p class="msg">אנחנו מאחלים לך אריכות ימים, הרבה רכיבות אופניים 🚴, בריאות, ביטחון, חופש מהעבודה, עוד הרבה הצגות מוצלחות, ומכונת כביסה שעובדת בשקט.</p>
+    <p class="msg"><b>אתה האבא הכי טוב בעולם!</b> ❤️</p>
+    <p class="sign">באהבה, המשפחה</p>
+  </div>
+</div>
 
 <script>
 (() => {
@@ -1029,6 +1054,44 @@ if (saved?.items?.length) {
   else { renderChips(); castMetaMsg = K('castMetaShort', castList().length); $('castMeta').textContent = say(castMetaMsg); show('castView'); }
 } else show('loadView');
 applyUiLang();
+
+/* ---------- birthday card ---------- */
+// Dad's 57th, 9 October 2026: the card opens with confetti every time the app opens that day,
+// and on the following week until it has been closed once.
+const BDAY = 'playmate-bday57';
+function confetti() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = document.createElement('canvas'); cv.id = 'confetti'; document.body.append(cv);
+  const cx = cv.getContext('2d'), dpr = devicePixelRatio || 1;
+  const fit = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  fit(); addEventListener('resize', fit);
+  const css = getComputedStyle(document.documentElement);
+  const colors = ['--gold', '--gold-2', '--ink', '--red', '--red-ink'].map(v => css.getPropertyValue(v).trim());
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const bits = Array.from({ length: 180 }, (_, i) => ({
+    x: i % 2 ? rnd(-20, innerWidth * .35) : rnd(innerWidth * .65, innerWidth + 20), y: rnd(-innerHeight * .6, -10),
+    vx: rnd(-2, 2), vy: rnd(1, 4), w: rnd(6, 11), h: rnd(3, 6), r: rnd(0, 6.3), vr: rnd(-.2, .2), sway: rnd(0, 6.3), c: colors[i % colors.length]
+  }));
+  const t0 = performance.now();
+  (function frame(now) {
+    cx.clearRect(0, 0, innerWidth, innerHeight);
+    for (const b of bits) {
+      b.vy = Math.min(b.vy + .06, 5); b.sway += .05; b.x += b.vx + Math.sin(b.sway) * .8; b.y += b.vy; b.r += b.vr;
+      cx.save(); cx.translate(b.x, b.y); cx.rotate(b.r); cx.scale(1, Math.cos(b.sway * 2)); cx.fillStyle = b.c; cx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); cx.restore();
+    }
+    if (now - t0 < 7000 && bits.some(b => b.y < innerHeight + 20)) requestAnimationFrame(frame);
+    else { removeEventListener('resize', fit); cv.remove(); }
+  })(t0);
+}
+function closeCard() { $('bday').hidden = true; try { localStorage.setItem(BDAY, '1'); } catch {} }
+const today = (d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate())(new Date());
+let cardClosed = false; try { cardClosed = !!localStorage.getItem(BDAY); } catch {}
+if (today === 20261009 || (today > 20261009 && today <= 20261016 && !cardClosed)) {
+  $('bday').hidden = false; $('bdayClose').focus(); confetti();
+}
+$('bdayClose').onclick = closeCard;
+$('bday').onclick = e => { if (e.target === e.currentTarget) closeCard(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('bday').hidden) closeCard(); });
 
 /* ---------- ask before the back button leaves the app ---------- */
 // The page keeps one extra history entry; pressing back lands on it and we ask first.

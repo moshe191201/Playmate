@@ -39,6 +39,7 @@ const check = (name, ok, extra = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  
   await p.route('**/fonts.googleapis.com/**', r => r.abort());
   await p.route('**/cdnjs.cloudflare.com/**', r => r.abort());  // JSZip is only needed for .docx uploads
   await p.goto(PAGE);
+  if (await p.isVisible('#bday')) await p.click('#bdayClose');  // the birthday card, if the test runs that week
 
   check('interface opens in Hebrew', await p.evaluate(() => document.documentElement.lang === 'he' && document.documentElement.dir === 'rtl'));
 
@@ -107,6 +108,7 @@ const check = (name, ok, extra = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  
   await a.route('**/fonts.googleapis.com/**', r => r.abort());
   await a.route('**/cdnjs.cloudflare.com/**', r => r.abort());
   await a.goto(PAGE);
+  if (await a.isVisible('#bday')) await a.click('#bdayClose');
   await a.click('#sampleBtn'); await a.click('.chip:has-text("TOM")'); await a.click('#startBtn');
   await a.waitForFunction(() => !document.getElementById('lastHeard').hidden, null, { timeout: 30000 });
   check('android: line checked by recognition alone', /35%/.test(await a.textContent('#lastHeard')), await a.textContent('#lastHeard'));
@@ -116,6 +118,32 @@ const check = (name, ok, extra = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  
   await a.click('#nextBtn');
   await a.waitForFunction(() => /network/.test(document.getElementById('lastHeard').textContent), null, { timeout: 30000 }).catch(() => {});
   check('android: recogniser error shown when nothing was heard', /network/.test(await a.textContent('#lastHeard')), await a.textContent('#lastHeard'));
+
+  // birthday card: opens with confetti on 9 Oct 2026, X closes it, and it's gone after that week
+  const card = async (when, setup) => {
+    const c = await browser.newContext({ viewport: { width: 400, height: 860 } });
+    if (setup) await c.addInitScript(setup);
+    const b = await c.newPage();
+    b.on('pageerror', e => { console.log('PAGE ERROR', e.message); failed++; });
+    await b.clock.setFixedTime(new Date(when));
+    await b.route('**/fonts.googleapis.com/**', r => r.abort());
+    await b.route('**/cdnjs.cloudflare.com/**', r => r.abort());
+    await b.goto(PAGE);
+    return { b, c };
+  };
+  let { b, c } = await card('2026-10-09T08:00:00');
+  check('birthday card opens on the day', await b.isVisible('#bday') && /מזל טוב אבא!!/.test(await b.textContent('#bdayTitle')));
+  check('confetti on open', await b.$('#confetti') !== null);
+  await b.screenshot({ path: path.join(process.env.SHOT_DIR || require('os').tmpdir(), 'bday.png') });
+  await b.click('#bdayClose');
+  check('X closes the birthday card', !(await b.isVisible('#bday')));
+  await c.close();
+  ({ b, c } = await card('2026-10-11T08:00:00', () => localStorage.setItem('playmate-bday57', '1')));
+  check('card stays closed later that week once closed', !(await b.isVisible('#bday')));
+  await c.close();
+  ({ b, c } = await card('2026-11-01T08:00:00'));
+  check('no birthday card after that week', !(await b.isVisible('#bday')));
+  await c.close();
 
   await browser.close();
   console.log(failed ? `\n${failed} check(s) failed` : '\nAll checks passed');
